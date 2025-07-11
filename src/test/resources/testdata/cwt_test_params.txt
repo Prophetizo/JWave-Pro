@@ -1,0 +1,6 @@
+# CWT test parameters
+sampling_rate=1000.0
+signal_length=256
+num_scales=20
+scale_min=1.0
+scale_max=50.0
