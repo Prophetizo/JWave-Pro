@@ -275,4 +275,4 @@ This project builds upon the excellent foundation of [JWave](https://github.com/
 
 See [CHANGELOG.md](CHANGELOG.md) for detailed version history and changes.
 
-**Current Version: 2.1.0-SNAPSHOT**
+**Current Version: 2.0.0-SNAPSHOT**

@@ -67,7 +67,7 @@
         <repository>
             <id>github-prophetizo-jwave-pro</id>
             <name>GitHub Packages</name>
-            <url>https://maven.pkg.github.com/prophetizo/JWave</url>
+            <url>https://maven.pkg.github.com/prophetizo/JWave-Pro</url>
         </repository>
     </distributionManagement>
 </project>
