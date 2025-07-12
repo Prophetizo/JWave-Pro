@@ -30,6 +30,7 @@ public class StreamingTransformFactory {
     private static final int CWT_SAMPLES_PER_SCALE = 64;
     private static final int CWT_MIN_BUFFER_SIZE = 256;
     private static final int FFT_MIN_BUFFER_POWER = 10;    // Minimum 2^10 = 1024 samples
+    private static final int MAX_BUFFER_POWER = 30;        // Maximum 2^30 = ~1 billion samples
     
     /**
      * Supported transform types for streaming.
@@ -166,7 +167,14 @@ public class StreamingTransformFactory {
             case FWT:
             case WPT:
                 // FWT/WPT require power-of-2
-                return 1 << Math.max(desiredLevel + FWT_LEVEL_BUFFER_FACTOR, FWT_MIN_BUFFER_POWER);
+                // Prevent overflow in addition
+                int fwtPower;
+                if (desiredLevel > MAX_BUFFER_POWER - FWT_LEVEL_BUFFER_FACTOR) {
+                    fwtPower = MAX_BUFFER_POWER;
+                } else {
+                    fwtPower = Math.max(desiredLevel + FWT_LEVEL_BUFFER_FACTOR, FWT_MIN_BUFFER_POWER);
+                }
+                return 1 << fwtPower;
                 
             case MODWT:
                 // MODWT can handle any size but benefits from larger buffers
@@ -179,7 +187,9 @@ public class StreamingTransformFactory {
             case FFT:
             case DFT:
                 // FFT performs best with power-of-2
-                return 1 << Math.max(desiredLevel, FFT_MIN_BUFFER_POWER);
+                int fftPower = Math.max(desiredLevel, FFT_MIN_BUFFER_POWER);
+                fftPower = Math.min(fftPower, MAX_BUFFER_POWER);
+                return 1 << fftPower;
                 
             default:
                 throw new IllegalArgumentException("Unknown transform type: " + type);

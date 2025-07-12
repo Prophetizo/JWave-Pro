@@ -166,6 +166,37 @@ public class StreamingTransformFactoryBufferSizeTest {
     }
     
     @Test
+    public void testOverflowProtection() {
+        // Test that very large levels don't cause bit shift overflow
+        // Should cap at 2^30 instead of overflowing
+        int maxExpected = 1 << 30; // 2^30 = 1,073,741,824
+        
+        // FWT with huge level should cap at MAX_BUFFER_POWER
+        assertEquals(maxExpected, StreamingTransformFactory.getRecommendedBufferSize(
+            StreamingTransformFactory.TransformType.FWT, 50));
+        assertEquals(maxExpected, StreamingTransformFactory.getRecommendedBufferSize(
+            StreamingTransformFactory.TransformType.FWT, 100));
+        assertEquals(maxExpected, StreamingTransformFactory.getRecommendedBufferSize(
+            StreamingTransformFactory.TransformType.FWT, Integer.MAX_VALUE));
+        
+        // WPT should behave the same
+        assertEquals(maxExpected, StreamingTransformFactory.getRecommendedBufferSize(
+            StreamingTransformFactory.TransformType.WPT, 50));
+        
+        // FFT/DFT with huge level should also cap
+        assertEquals(maxExpected, StreamingTransformFactory.getRecommendedBufferSize(
+            StreamingTransformFactory.TransformType.FFT, 40));
+        assertEquals(maxExpected, StreamingTransformFactory.getRecommendedBufferSize(
+            StreamingTransformFactory.TransformType.DFT, 40));
+        
+        // Edge case: exactly at the boundary
+        assertEquals(maxExpected, StreamingTransformFactory.getRecommendedBufferSize(
+            StreamingTransformFactory.TransformType.FWT, 27)); // 27 + 3 = 30
+        assertEquals(maxExpected, StreamingTransformFactory.getRecommendedBufferSize(
+            StreamingTransformFactory.TransformType.FFT, 30)); // exactly 30
+    }
+    
+    @Test
     public void testConsistencyAcrossTypes() {
         // FWT and WPT should always return the same values
         for (int level = 0; level <= 15; level++) {
