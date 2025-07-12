@@ -32,6 +32,11 @@ import static org.junit.Assert.*;
 public class StreamingMODWTPerformanceTest {
     
     // Constants for test data generation
+    /**
+     * Special offset value for initial buffer load data generation.
+     * Using a negative offset ensures initial data has a different pattern
+     * than the subsequent update data (which uses positive offsets).
+     */
     private static final int INITIAL_LOAD_OFFSET = -1;
     
     /**
