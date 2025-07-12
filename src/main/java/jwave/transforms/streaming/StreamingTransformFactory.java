@@ -156,6 +156,25 @@ public class StreamingTransformFactory {
     }
     
     /**
+     * Calculate a power-of-2 buffer size with overflow protection.
+     * 
+     * @param desiredPower The desired power of 2
+     * @param minPower The minimum allowed power
+     * @param extraLevels Additional levels to add to desiredPower
+     * @return Buffer size as 2^power, capped at MAX_BUFFER_POWER
+     */
+    private static int calculatePowerOfTwoSize(int desiredLevel, int minPower, int extraLevels) {
+        int targetPower;
+        if (desiredLevel > MAX_BUFFER_POWER - extraLevels) {
+            // Prevent overflow when adding extraLevels
+            targetPower = MAX_BUFFER_POWER;
+        } else {
+            targetPower = Math.max(desiredLevel + extraLevels, minPower);
+        }
+        return 1 << targetPower;
+    }
+    
+    /**
      * Get the recommended buffer size for a transform type.
      * 
      * @param type The transform type
@@ -167,14 +186,7 @@ public class StreamingTransformFactory {
             case FWT:
             case WPT:
                 // FWT/WPT require power-of-2
-                // Prevent overflow in addition
-                int fwtPower;
-                if (desiredLevel > MAX_BUFFER_POWER - FWT_LEVEL_BUFFER_FACTOR) {
-                    fwtPower = MAX_BUFFER_POWER;
-                } else {
-                    fwtPower = Math.max(desiredLevel + FWT_LEVEL_BUFFER_FACTOR, FWT_MIN_BUFFER_POWER);
-                }
-                return 1 << fwtPower;
+                return calculatePowerOfTwoSize(desiredLevel, FWT_MIN_BUFFER_POWER, FWT_LEVEL_BUFFER_FACTOR);
                 
             case MODWT:
                 // MODWT can handle any size but benefits from larger buffers
@@ -187,9 +199,7 @@ public class StreamingTransformFactory {
             case FFT:
             case DFT:
                 // FFT performs best with power-of-2
-                int fftPower = Math.max(desiredLevel, FFT_MIN_BUFFER_POWER);
-                fftPower = Math.min(fftPower, MAX_BUFFER_POWER);
-                return 1 << fftPower;
+                return calculatePowerOfTwoSize(desiredLevel, FFT_MIN_BUFFER_POWER, 0);
                 
             default:
                 throw new IllegalArgumentException("Unknown transform type: " + type);
