@@ -60,10 +60,8 @@ public interface StreamingTransformListener<T> {
      * @param recoverable true if processing can continue, false if fatal
      */
     default void onError(Exception error, boolean recoverable) {
-        // Default: log to stderr
-        System.err.println("Streaming transform error: " + error.getMessage());
-        if (!recoverable) {
-            error.printStackTrace();
-        }
+        // Default: empty implementation
+        // Libraries should not print to stderr by default.
+        // Applications using this library should implement proper error handling.
     }
 }

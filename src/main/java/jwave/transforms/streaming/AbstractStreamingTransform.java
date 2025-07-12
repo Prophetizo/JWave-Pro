@@ -324,8 +324,8 @@ public abstract class AbstractStreamingTransform<T> implements StreamingTransfor
             try {
                 listener.onError(error, recoverable);
             } catch (Exception e) {
-                // Prevent infinite recursion - just log to stderr
-                System.err.println("Error in error handler: " + e.getMessage());
+                // Prevent infinite recursion - silently ignore
+                // Applications should ensure their error handlers don't throw
             }
         }
     }
