@@ -43,6 +43,9 @@ public class StreamingMODWT extends AbstractStreamingTransform<double[][]> {
     private double[][] cachedGFilters;
     private double[][] cachedHFilters;
     
+    // Performance optimization constants
+    private static final int CONVOLUTION_UNROLL_FACTOR = 4;
+    
     /**
      * Create a new streaming MODWT transform.
      * 
@@ -177,10 +180,15 @@ public class StreamingMODWT extends AbstractStreamingTransform<double[][]> {
      * 
      * This method efficiently updates only the coefficients affected by new samples,
      * using a sliding window approach for circular convolution.
+     * 
+     * @param newSamples The new samples that were just added to the buffer
+     *                   (already incorporated into the buffer by the parent class,
+     *                   included here to match the abstract method signature)
      */
     private double[][] performIncrementalUpdate(double[] newSamples) {
         // First time or buffer wrapped around - need full computation
-        if (currentCoefficients == null || lastProcessedIndex < 0 || buffer.hasWrapped()) {
+        if (currentCoefficients == null || lastProcessedIndex < 0 || buffer.hasWrapped() ||
+            cachedGFilters == null || cachedHFilters == null) {
             return recomputeCoefficients();
         }
         
@@ -190,14 +198,16 @@ public class StreamingMODWT extends AbstractStreamingTransform<double[][]> {
             currentBufferData = Arrays.copyOf(currentBufferData, effectiveBufferSize);
         }
         
-        // Calculate how many new samples were actually added
-        int currentSize = buffer.size();
-        int numNewSamples = currentSize - (lastProcessedIndex + 1);
+        // Use the actual new samples count from the parameter
+        int numNewSamples = newSamples.length;
         
-        // If buffer hasn't moved forward, return existing coefficients
-        if (numNewSamples <= 0) {
+        // If no new samples, return existing coefficients
+        if (numNewSamples == 0) {
             return currentCoefficients;
         }
+        
+        // Update the last processed index
+        int currentSize = buffer.size();
         
         // For incremental MODWT, we optimize by only updating affected coefficients
         // Since MODWT is hierarchical, changes propagate through levels, but we can
@@ -265,9 +275,9 @@ public class StreamingMODWT extends AbstractStreamingTransform<double[][]> {
             // No wraparound needed - use direct indexing for better performance
             for (int n = startIndex; n < endIndex; n++) {
                 double sum = 0.0;
-                // Unroll by 4 for better pipelining (if filter is long enough)
+                // Unroll loop for better pipelining (if filter is long enough)
                 int m = 0;
-                for (; m < filterLength - 3; m += 4) {
+                for (; m < filterLength - (CONVOLUTION_UNROLL_FACTOR - 1); m += CONVOLUTION_UNROLL_FACTOR) {
                     sum += input[n - m] * filter[m] +
                            input[n - m - 1] * filter[m + 1] +
                            input[n - m - 2] * filter[m + 2] +
