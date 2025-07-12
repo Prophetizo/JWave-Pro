@@ -202,43 +202,47 @@ public class StreamingMODWT extends AbstractStreamingTransform<double[][]> {
             return currentCoefficients;
         }
         
-        // For incremental MODWT, we use a boundary update approach
-        // This is more efficient than full recomputation but simpler than
-        // tracking the full hierarchical dependencies
+        // For incremental MODWT, we optimize by only updating affected coefficients
+        // Since MODWT is hierarchical, changes propagate through levels, but we can
+        // still save computation by limiting the update range at each level
         
+        // Start with the input signal
         double[] vCurrent = Arrays.copyOf(currentBufferData, effectiveBufferSize);
         
-        // Update each level sequentially
+        // Process each decomposition level
         for (int j = 1; j <= maxLevel; j++) {
             double[] gFilter = cachedGFilters[j];
             double[] hFilter = cachedHFilters[j];
             
-            // Calculate affected range for this level
+            // Calculate the range of coefficients affected at this level
+            // The affected range grows with each level due to filter upsampling
             int filterLength = Math.max(gFilter.length, hFilter.length);
-            int affectedStart = Math.max(0, effectiveBufferSize - numNewSamples - filterLength + 1);
+            int levelAffectedStart = Math.max(0, effectiveBufferSize - numNewSamples - filterLength + 1);
             
-            // Update detail coefficients (W_j)
+            // Update detail coefficients W_j for the affected range
             updateCoefficientRange(vCurrent, hFilter, currentCoefficients[j - 1], 
-                                 affectedStart, effectiveBufferSize);
+                                 levelAffectedStart, effectiveBufferSize);
             
-            // Compute new approximation coefficients (V_j)
+            // Compute approximation coefficients V_j
             double[] vNext = new double[effectiveBufferSize];
             
-            // Copy unaffected coefficients
-            if (affectedStart > 0 && j <= maxLevel) {
-                System.arraycopy(currentCoefficients[maxLevel], 0, vNext, 0, affectedStart);
+            // For efficiency, we compute the full approximation at each level
+            // This is necessary because V_j feeds into the next level
+            for (int n = 0; n < effectiveBufferSize; n++) {
+                double sum = 0.0;
+                for (int m = 0; m < gFilter.length; m++) {
+                    int signalIndex = (n - m + effectiveBufferSize) % effectiveBufferSize;
+                    sum += vCurrent[signalIndex] * gFilter[m];
+                }
+                vNext[n] = sum;
             }
             
-            // Compute affected approximation coefficients
-            updateCoefficientRange(vCurrent, gFilter, vNext, 
-                                 affectedStart, effectiveBufferSize);
-            
-            // Store approximation at max level
+            // Store final approximation coefficients
             if (j == maxLevel) {
                 currentCoefficients[maxLevel] = vNext;
             }
             
-            // Use new approximation as input for next level
+            // Use approximation as input for next level
             vCurrent = vNext;
         }
         
