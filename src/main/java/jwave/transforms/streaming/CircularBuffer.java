@@ -108,9 +108,8 @@ public class CircularBuffer {
             return window; // All zeros
         }
         
-        // Calculate the ending position in chronological order
-        int endPos = size - offset;
-        int startPos = endPos - length;
+        // Calculate the starting position in chronological order
+        int startPos = (size - offset) - length;
         
         // If startPos is negative, we need zero padding at the beginning
         int zeroPadding = 0;
