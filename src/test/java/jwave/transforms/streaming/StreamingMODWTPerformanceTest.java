@@ -92,8 +92,8 @@ public class StreamingMODWTPerformanceTest {
         System.out.println("FULL strategy: " + (fullTime / 1_000_000) + " ms");
         System.out.println("INCREMENTAL strategy: " + (incTime / 1_000_000) + " ms");
         System.out.println("LAZY strategy: " + (lazyTime / 1_000_000) + " ms");
-        System.out.println("FULL vs INCREMENTAL speedup: " + String.format("%.2fx", (double)fullTime / incTime));
-        System.out.println("LAZY vs FULL speedup: " + String.format("%.2fx", (double)fullTime / lazyTime));
+        System.out.println("INCREMENTAL speedup over FULL: " + String.format("%.2fx", (double)fullTime / incTime));
+        System.out.println("LAZY speedup over FULL: " + String.format("%.2fx", (double)fullTime / lazyTime));
         
         // INCREMENTAL should be faster than FULL
         assertTrue("INCREMENTAL should be faster than FULL", incTime < fullTime);
