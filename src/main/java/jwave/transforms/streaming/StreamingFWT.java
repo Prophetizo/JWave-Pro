@@ -110,11 +110,8 @@ public class StreamingFWT extends AbstractStreamingTransform<double[]> {
             // Perform FWT on the buffer data
             return fwt.forward(data, maxLevel);
         } catch (JWaveException e) {
+            // Convert JWaveException (extends Throwable) to Exception for listener notification
             notifyError(new Exception(e.getMessage(), e), false);
-            // Return zeros on error
-            return new double[data.length];
-        } catch (Exception e) {
-            notifyError(e, false);
             // Return zeros on error
             return new double[data.length];
         }
@@ -137,9 +134,11 @@ public class StreamingFWT extends AbstractStreamingTransform<double[]> {
                 // Return current (possibly stale) coefficients
                 return currentCoefficients != null ? currentCoefficients : 
                        new double[effectiveBufferSize];
+                       
+            default:
+                // Defensive programming: handle any future enum values
+                throw new IllegalStateException("Unknown update strategy: " + config.getUpdateStrategy());
         }
-        
-        return currentCoefficients;
     }
     
     /**
@@ -280,10 +279,8 @@ public class StreamingFWT extends AbstractStreamingTransform<double[]> {
         try {
             return fwt.reverse(coeffs, level);
         } catch (JWaveException e) {
+            // Convert JWaveException (extends Throwable) to Exception for listener notification
             notifyError(new Exception(e.getMessage(), e), false);
-            return new double[effectiveBufferSize];
-        } catch (Exception e) {
-            notifyError(e, false);
             return new double[effectiveBufferSize];
         }
     }
