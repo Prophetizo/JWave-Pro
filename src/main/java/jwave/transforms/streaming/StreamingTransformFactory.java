@@ -92,9 +92,7 @@ public class StreamingTransformFactory {
                 );
                 
             case MODWT:
-                throw new UnsupportedOperationException(
-                    "Streaming MODWT not yet implemented"
-                );
+                return new StreamingMODWT(wavelet, config);
                 
             case CWT:
                 throw new UnsupportedOperationException(

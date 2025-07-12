@@ -100,14 +100,21 @@ public class StreamingTransformFactoryTest {
         );
     }
     
-    @Test(expected = UnsupportedOperationException.class)
-    public void testCreateMODWTNotImplemented() {
-        StreamingTransformConfig config = StreamingTransformConfig.builder().build();
-        StreamingTransformFactory.create(
+    @Test
+    public void testCreateMODWT() {
+        StreamingTransformConfig config = StreamingTransformConfig.builder()
+            .bufferSize(256)
+            .maxLevel(3)
+            .build();
+        StreamingTransform<?> transform = StreamingTransformFactory.create(
             StreamingTransformFactory.TransformType.MODWT, 
             new Symlet8(), 
             config
         );
+        assertNotNull(transform);
+        assertTrue(transform instanceof StreamingMODWT);
+        assertEquals(256, transform.getBufferSize());
+        assertEquals(3, transform.getMaxLevel());
     }
     
     @Test(expected = UnsupportedOperationException.class)
