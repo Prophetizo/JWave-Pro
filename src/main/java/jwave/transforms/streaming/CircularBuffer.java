@@ -210,7 +210,8 @@ public class CircularBuffer {
      * Clear all data from the buffer.
      */
     public void clear() {
-        Arrays.fill(buffer, 0.0);
+        // No need to zero the array - just reset the indices
+        // The old data will be overwritten as new data arrives
         writeIndex = 0;
         size = 0;
         hasWrapped = false;

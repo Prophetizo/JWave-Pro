@@ -155,4 +155,25 @@ public class CircularBufferTest {
         CircularBuffer buffer = new CircularBuffer(5);
         buffer.getLast();
     }
+    
+    @Test(expected = IllegalArgumentException.class)
+    public void testGetWindowNegativeOffset() {
+        CircularBuffer buffer = new CircularBuffer(5);
+        buffer.append(new double[] {1.0, 2.0, 3.0});
+        buffer.getWindow(-1, 2); // Should throw
+    }
+    
+    @Test(expected = IllegalArgumentException.class)
+    public void testGetWindowZeroLength() {
+        CircularBuffer buffer = new CircularBuffer(5);
+        buffer.append(new double[] {1.0, 2.0, 3.0});
+        buffer.getWindow(0, 0); // Should throw
+    }
+    
+    @Test(expected = IllegalArgumentException.class)
+    public void testGetWindowNegativeLength() {
+        CircularBuffer buffer = new CircularBuffer(5);
+        buffer.append(new double[] {1.0, 2.0, 3.0});
+        buffer.getWindow(0, -5); // Should throw
+    }
 }

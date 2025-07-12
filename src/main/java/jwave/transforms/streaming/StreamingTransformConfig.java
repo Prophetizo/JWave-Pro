@@ -136,18 +136,30 @@ public class StreamingTransformConfig {
         
         public StreamingTransformConfig build() {
             // Auto-detect max level if not specified
-            if (maxLevel == -1) {
-                maxLevel = (int) (Math.log(bufferSize) / LOG_2);
+            int effectiveMaxLevel = maxLevel;
+            if (effectiveMaxLevel == -1) {
+                effectiveMaxLevel = (int) (Math.log(bufferSize) / LOG_2);
             }
             
             // Validate configuration
-            if (maxLevel > (int) (Math.log(bufferSize) / LOG_2)) {
+            int maxPossibleLevel = (int) (Math.log(bufferSize) / LOG_2);
+            if (effectiveMaxLevel > maxPossibleLevel) {
                 throw new IllegalStateException(
-                    "Max level " + maxLevel + " too high for buffer size " + bufferSize
+                    "Max level " + effectiveMaxLevel + " too high for buffer size " + bufferSize +
+                    " (max possible: " + maxPossibleLevel + ")"
                 );
             }
             
-            return new StreamingTransformConfig(this);
+            // Create new builder to avoid mutating this one
+            Builder configBuilder = new Builder();
+            configBuilder.bufferSize = this.bufferSize;
+            configBuilder.maxLevel = effectiveMaxLevel;
+            configBuilder.updateStrategy = this.updateStrategy;
+            configBuilder.cacheIntermediateResults = this.cacheIntermediateResults;
+            configBuilder.enableParallelProcessing = this.enableParallelProcessing;
+            configBuilder.updateBatchSize = this.updateBatchSize;
+            
+            return new StreamingTransformConfig(configBuilder);
         }
     }
 }
