@@ -36,6 +36,14 @@ public class StreamingMODWT extends AbstractStreamingTransform<double[][]> {
     private int effectiveBufferSize;
     private boolean coefficientsDirty = false;
     
+    // For incremental updates
+    private int lastProcessedIndex = -1;
+    private double[] previousBufferState;
+    
+    // Cache for upsampled filters to avoid recomputation
+    private double[][] cachedGFilters;
+    private double[][] cachedHFilters;
+    
     /**
      * Create a new streaming MODWT transform.
      * 
@@ -80,6 +88,35 @@ public class StreamingMODWT extends AbstractStreamingTransform<double[][]> {
         
         // Pre-compute filters for efficiency
         modwt.precomputeFilters(maxLevel);
+        
+        // Initialize filter caches for incremental updates
+        cachedGFilters = new double[maxLevel + 1][];
+        cachedHFilters = new double[maxLevel + 1][];
+        precomputeIncrementalFilters();
+    }
+    
+    /**
+     * Pre-compute and cache filters for incremental updates.
+     */
+    private void precomputeIncrementalFilters() {
+        // Get base filters
+        double[] baseGFilter = normalizeFilter(wavelet.getScalingDeComposition());
+        double[] baseHFilter = normalizeFilter(wavelet.getWaveletDeComposition());
+        
+        // Scale for MODWT
+        double scaleFactor = Math.sqrt(2.0);
+        for (int i = 0; i < baseGFilter.length; i++) {
+            baseGFilter[i] /= scaleFactor;
+        }
+        for (int i = 0; i < baseHFilter.length; i++) {
+            baseHFilter[i] /= scaleFactor;
+        }
+        
+        // Cache upsampled filters for each level
+        for (int level = 1; level <= maxLevel; level++) {
+            cachedGFilters[level] = upsampleFilter(baseGFilter, level);
+            cachedHFilters[level] = upsampleFilter(baseHFilter, level);
+        }
     }
     
     protected double[][] computeTransform(double[] data) {
@@ -102,13 +139,8 @@ public class StreamingMODWT extends AbstractStreamingTransform<double[][]> {
                 return recomputeCoefficients();
                 
             case INCREMENTAL:
-                // TODO: Implement true incremental MODWT update
-                // This would require:
-                // 1. Tracking which coefficients are affected by new samples
-                // 2. Computing only the boundary effects for each level
-                // 3. Updating circular convolution results incrementally
-                // For now, fall back to full recomputation
-                return recomputeCoefficients();
+                // Perform true incremental update
+                return performIncrementalUpdate(newSamples);
                 
             case LAZY:
                 // Just mark coefficients as dirty, don't compute yet
@@ -134,7 +166,141 @@ public class StreamingMODWT extends AbstractStreamingTransform<double[][]> {
         
         currentCoefficients = computeTransform(bufferData);
         coefficientsDirty = false;
+        
+        // Store state for potential incremental updates
+        previousBufferState = bufferData;
+        lastProcessedIndex = buffer.size() - 1;
+        
         return currentCoefficients;
+    }
+    
+    /**
+     * Perform incremental MODWT update for new samples.
+     * 
+     * This method efficiently updates only the coefficients affected by new samples,
+     * using a sliding window approach for circular convolution.
+     */
+    private double[][] performIncrementalUpdate(double[] newSamples) {
+        // First time or buffer wrapped around - need full computation
+        if (currentCoefficients == null || lastProcessedIndex < 0 || 
+            buffer.hasWrapped() || previousBufferState == null) {
+            return recomputeCoefficients();
+        }
+        
+        // Get current buffer state
+        double[] currentBufferData = buffer.toArray();
+        if (currentBufferData.length < effectiveBufferSize) {
+            currentBufferData = Arrays.copyOf(currentBufferData, effectiveBufferSize);
+        }
+        
+        // Calculate how many new samples were actually added
+        int currentSize = buffer.size();
+        int numNewSamples = currentSize - (lastProcessedIndex + 1);
+        
+        // If buffer hasn't moved forward, return existing coefficients
+        if (numNewSamples <= 0) {
+            return currentCoefficients;
+        }
+        
+        // For incremental MODWT, we use a boundary update approach
+        // This is more efficient than full recomputation but simpler than
+        // tracking the full hierarchical dependencies
+        
+        double[] vCurrent = Arrays.copyOf(currentBufferData, effectiveBufferSize);
+        
+        // Update each level sequentially
+        for (int j = 1; j <= maxLevel; j++) {
+            double[] gFilter = cachedGFilters[j];
+            double[] hFilter = cachedHFilters[j];
+            
+            // Calculate affected range for this level
+            int filterLength = Math.max(gFilter.length, hFilter.length);
+            int affectedStart = Math.max(0, effectiveBufferSize - numNewSamples - filterLength + 1);
+            
+            // Update detail coefficients (W_j)
+            updateCoefficientRange(vCurrent, hFilter, currentCoefficients[j - 1], 
+                                 affectedStart, effectiveBufferSize);
+            
+            // Compute new approximation coefficients (V_j)
+            double[] vNext = new double[effectiveBufferSize];
+            
+            // Copy unaffected coefficients
+            if (affectedStart > 0 && j <= maxLevel) {
+                System.arraycopy(currentCoefficients[maxLevel], 0, vNext, 0, affectedStart);
+            }
+            
+            // Compute affected approximation coefficients
+            updateCoefficientRange(vCurrent, gFilter, vNext, 
+                                 affectedStart, effectiveBufferSize);
+            
+            // Store approximation at max level
+            if (j == maxLevel) {
+                currentCoefficients[maxLevel] = vNext;
+            }
+            
+            // Use new approximation as input for next level
+            vCurrent = vNext;
+        }
+        
+        // Update tracking variables
+        previousBufferState = currentBufferData;
+        lastProcessedIndex = currentSize - 1;
+        coefficientsDirty = false;
+        
+        return currentCoefficients;
+    }
+    
+    /**
+     * Update a range of coefficients using circular convolution.
+     */
+    private void updateCoefficientRange(double[] input, double[] filter, 
+                                      double[] output, int startIndex, int endIndex) {
+        int N = input.length;
+        int filterLength = filter.length;
+        
+        for (int n = startIndex; n < endIndex; n++) {
+            double sum = 0.0;
+            for (int m = 0; m < filterLength; m++) {
+                int signalIndex = (n - m + N) % N;
+                sum += input[signalIndex] * filter[m];
+            }
+            output[n] = sum;
+        }
+    }
+    
+    
+    /**
+     * Normalize a filter to have unit energy (L2 norm = 1).
+     */
+    private double[] normalizeFilter(double[] filter) {
+        double[] normalized = Arrays.copyOf(filter, filter.length);
+        double energy = 0.0;
+        for (double c : normalized) {
+            energy += c * c;
+        }
+        double norm = Math.sqrt(energy);
+        if (norm > 1e-12) {
+            for (int i = 0; i < normalized.length; i++) {
+                normalized[i] /= norm;
+            }
+        }
+        return normalized;
+    }
+    
+    /**
+     * Upsample a filter for a specific decomposition level.
+     */
+    private double[] upsampleFilter(double[] filter, int level) {
+        if (level <= 1) return filter;
+        
+        int gap = (1 << (level - 1)) - 1;
+        int newLength = filter.length + (filter.length - 1) * gap;
+        
+        double[] upsampled = new double[newLength];
+        for (int i = 0; i < filter.length; i++) {
+            upsampled[i * (gap + 1)] = filter[i];
+        }
+        return upsampled;
     }
     
     @Override
@@ -158,6 +324,13 @@ public class StreamingMODWT extends AbstractStreamingTransform<double[][]> {
         // This method only handles transform-specific state
         currentCoefficients = null;
         coefficientsDirty = false;
+        
+        // Reset incremental update state
+        lastProcessedIndex = -1;
+        previousBufferState = null;
+        cachedGFilters = null;
+        cachedHFilters = null;
+        
         // Clear MODWT filter cache to free memory
         modwt.clearFilterCache();
     }
