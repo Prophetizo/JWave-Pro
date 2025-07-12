@@ -149,18 +149,27 @@ public class StreamingFWT extends AbstractStreamingTransform<double[]> {
      * Recompute coefficients from the current buffer state.
      */
     private double[] recomputeCoefficients() {
-        // Get current buffer data with power-of-2 padding if needed
+        // Get current buffer data
         double[] bufferData = buffer.toArray();
-        if (bufferData.length < effectiveBufferSize) {
-            // Pad with zeros to reach power-of-2 size
-            bufferData = Arrays.copyOf(bufferData, effectiveBufferSize);
+        
+        // For FWT, we need exactly effectiveBufferSize samples
+        double[] transformData;
+        if (bufferData.length >= effectiveBufferSize) {
+            // If we have enough data, use the most recent effectiveBufferSize samples
+            int offset = bufferData.length - effectiveBufferSize;
+            transformData = Arrays.copyOfRange(bufferData, offset, bufferData.length);
+        } else {
+            // If we don't have enough data, pad with zeros at the beginning
+            transformData = new double[effectiveBufferSize];
+            int offset = effectiveBufferSize - bufferData.length;
+            System.arraycopy(bufferData, 0, transformData, offset, bufferData.length);
         }
         
-        currentCoefficients = computeTransform(bufferData);
+        currentCoefficients = computeTransform(transformData);
         coefficientsDirty = false;
         
         // Update previous state for future incremental updates
-        System.arraycopy(bufferData, 0, previousBufferState, 0, effectiveBufferSize);
+        System.arraycopy(transformData, 0, previousBufferState, 0, effectiveBufferSize);
         
         return currentCoefficients;
     }
@@ -185,9 +194,19 @@ public class StreamingFWT extends AbstractStreamingTransform<double[]> {
         }
         
         // Get current buffer state
-        double[] currentBufferData = buffer.toArray();
-        if (currentBufferData.length < effectiveBufferSize) {
-            currentBufferData = Arrays.copyOf(currentBufferData, effectiveBufferSize);
+        double[] bufferData = buffer.toArray();
+        
+        // Prepare data for transform
+        double[] currentBufferData;
+        if (bufferData.length >= effectiveBufferSize) {
+            // Use the most recent effectiveBufferSize samples
+            int offset = bufferData.length - effectiveBufferSize;
+            currentBufferData = Arrays.copyOfRange(bufferData, offset, bufferData.length);
+        } else {
+            // Pad with zeros at the beginning
+            currentBufferData = new double[effectiveBufferSize];
+            int offset = effectiveBufferSize - bufferData.length;
+            System.arraycopy(bufferData, 0, currentBufferData, offset, bufferData.length);
         }
         
         // Check if significant changes occurred

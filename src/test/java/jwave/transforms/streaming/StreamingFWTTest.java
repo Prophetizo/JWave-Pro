@@ -7,13 +7,13 @@
  */
 package jwave.transforms.streaming;
 
-import jwave.TestService;
 import jwave.transforms.FastWaveletTransform;
+import jwave.transforms.wavelets.Wavelet;
 import jwave.transforms.wavelets.haar.Haar1;
 import jwave.transforms.wavelets.daubechies.Daubechies4;
 import jwave.transforms.wavelets.symlets.Symlet8;
+import jwave.exceptions.JWaveException;
 import org.junit.Test;
-import org.junit.Before;
 import static org.junit.Assert.*;
 
 /**
@@ -33,12 +33,6 @@ import static org.junit.Assert.*;
 public class StreamingFWTTest {
     
     private static final double DELTA = 1e-10;
-    private TestService testService;
-    
-    @Before
-    public void setUp() {
-        testService = new TestService();
-    }
     
     @Test
     public void testBasicConstruction() {
@@ -92,6 +86,42 @@ public class StreamingFWTTest {
             .build();
         
         new StreamingFWT(new Haar1(), config);
+    }
+    
+    @Test
+    public void testDirectComparison() {
+        // Simple test to verify the streaming FWT produces same results as standard FWT
+        StreamingTransformConfig config = StreamingTransformConfig.builder()
+            .bufferSize(8)  // Small size for debugging
+            .maxLevel(2)
+            .build();
+        
+        StreamingFWT streaming = new StreamingFWT(new Haar1(), config);
+        FastWaveletTransform standard = new FastWaveletTransform(new Haar1());
+        
+        // Simple test signal
+        double[] signal = {1, 2, 3, 4, 5, 6, 7, 8};
+        
+        // Update streaming transform
+        streaming.update(signal);
+        double[] streamingCoeffs = streaming.getCurrentCoefficients();
+        
+        // Compute standard transform
+        double[] standardCoeffs;
+        try {
+            standardCoeffs = standard.forward(signal, 2);
+        } catch (JWaveException e) {
+            fail("Standard FWT should not throw exception: " + e.getMessage());
+            return;
+        }
+        
+        // Print for debugging
+        System.out.println("Signal: " + Arrays.toString(signal));
+        System.out.println("Standard coeffs: " + Arrays.toString(standardCoeffs));
+        System.out.println("Streaming coeffs: " + Arrays.toString(streamingCoeffs));
+        
+        // Compare
+        assertArrayEquals("Coefficients should match", standardCoeffs, streamingCoeffs, DELTA);
     }
     
     @Test
@@ -149,7 +179,13 @@ public class StreamingFWTTest {
         double[] streamingCoeffs = streaming.getCurrentCoefficients();
         
         // Compute standard transform
-        double[] standardCoeffs = standard.forward(signal, 3);
+        double[] standardCoeffs;
+        try {
+            standardCoeffs = standard.forward(signal, 3);
+        } catch (JWaveException e) {
+            fail("Standard FWT should not throw exception: " + e.getMessage());
+            return;
+        }
         
         // Compare coefficients
         assertArrayEquals("Coefficients should match standard FWT", 
@@ -191,14 +227,14 @@ public class StreamingFWTTest {
         StreamingFWT fwt = new StreamingFWT(new Haar1(), config);
         
         // Initial update
-        double[] data1 = testService.generateRandomSignal(16);
+        double[] data1 = generateRandomSignal(16);
         fwt.update(data1);
         
         // Get coefficients (should trigger computation)
         double[] coeffs1 = fwt.getCurrentCoefficients();
         
         // Another update
-        double[] data2 = testService.generateRandomSignal(16);
+        double[] data2 = generateRandomSignal(16);
         fwt.update(data2);
         
         // Coefficients should be computed on demand
@@ -270,7 +306,7 @@ public class StreamingFWTTest {
         StreamingFWT fwt = new StreamingFWT(new Symlet8(), config);
         
         // Generate test signal
-        double[] original = testService.generateRandomSignal(128);
+        double[] original = generateRandomSignal(128);
         
         // Process signal
         fwt.update(original);
@@ -323,7 +359,7 @@ public class StreamingFWTTest {
         StreamingFWT fwt = new StreamingFWT(new Haar1(), config);
         
         // Add some data
-        fwt.update(testService.generateRandomSignal(32));
+        fwt.update(generateRandomSignal(32));
         double[] coeffsBefore = fwt.getCurrentCoefficients();
         
         // Reset
@@ -343,7 +379,7 @@ public class StreamingFWTTest {
     public void testStreamingWithDifferentWavelets() {
         int bufferSize = 64;
         int maxLevel = 3;
-        double[] signal = testService.generateRandomSignal(bufferSize);
+        double[] signal = generateRandomSignal(bufferSize);
         
         // Test with different wavelets
         Wavelet[] wavelets = {
@@ -384,7 +420,7 @@ public class StreamingFWTTest {
                 .build();
             
             StreamingFWT fwt = new StreamingFWT(new Haar1(), config);
-            fwt.update(testService.generateRandomSignal(size));
+            fwt.update(generateRandomSignal(size));
             
             double[] coeffs = fwt.getCurrentCoefficients();
             assertEquals("Buffer size " + size, size, coeffs.length);
@@ -423,5 +459,19 @@ public class StreamingFWTTest {
                 assertEquals(256, coeffs.length);
             }
         }
+    }
+    
+    /**
+     * Generate a random signal for testing.
+     * 
+     * @param length The length of the signal
+     * @return Array of random values between -1 and 1
+     */
+    private double[] generateRandomSignal(int length) {
+        double[] signal = new double[length];
+        for (int i = 0; i < length; i++) {
+            signal[i] = Math.random() * 2.0 - 1.0;
+        }
+        return signal;
     }
 }
