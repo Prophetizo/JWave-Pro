@@ -61,10 +61,8 @@ public class StreamingFWT extends AbstractStreamingTransform<double[]> {
         this.config = config;
         this.fwt = (FastWaveletTransform) transform;
         
-        // FWT requires power-of-2 buffer size
-        this.effectiveBufferSize = getNextPowerOfTwo(config.getBufferSize());
-        
         // Initialize with config values
+        // Note: effectiveBufferSize will be calculated in initializeTransformState()
         initialize(config.getBufferSize(), config.getMaxLevel());
     }
     
