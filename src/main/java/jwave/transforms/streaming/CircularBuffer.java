@@ -24,6 +24,13 @@ import java.util.Arrays;
  */
 public class CircularBuffer {
     
+    /**
+     * Threshold for switching between element-wise and bulk copy.
+     * For arrays smaller than this, the overhead of System.arraycopy
+     * may not be worth it compared to a simple loop.
+     */
+    private static final int SMALL_ARRAY_THRESHOLD = 8;
+    
     private final double[] buffer;
     private final int capacity;
     private int writeIndex;
@@ -63,7 +70,7 @@ public class CircularBuffer {
         }
         
         // For small arrays, the overhead of bulk copy might not be worth it
-        if (samples.length < 8) {
+        if (samples.length < SMALL_ARRAY_THRESHOLD) {
             for (double sample : samples) {
                 append(sample);
             }
