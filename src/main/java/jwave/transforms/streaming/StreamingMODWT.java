@@ -38,7 +38,6 @@ public class StreamingMODWT extends AbstractStreamingTransform<double[][]> {
     
     // For incremental updates
     private int lastProcessedIndex = -1;
-    private double[] previousBufferState;
     
     // Cache for upsampled filters to avoid recomputation
     private double[][] cachedGFilters;
@@ -168,7 +167,6 @@ public class StreamingMODWT extends AbstractStreamingTransform<double[][]> {
         coefficientsDirty = false;
         
         // Store state for potential incremental updates
-        previousBufferState = bufferData;
         lastProcessedIndex = buffer.size() - 1;
         
         return currentCoefficients;
@@ -182,8 +180,7 @@ public class StreamingMODWT extends AbstractStreamingTransform<double[][]> {
      */
     private double[][] performIncrementalUpdate(double[] newSamples) {
         // First time or buffer wrapped around - need full computation
-        if (currentCoefficients == null || lastProcessedIndex < 0 || 
-            buffer.hasWrapped() || previousBufferState == null) {
+        if (currentCoefficients == null || lastProcessedIndex < 0 || buffer.hasWrapped()) {
             return recomputeCoefficients();
         }
         
@@ -247,7 +244,6 @@ public class StreamingMODWT extends AbstractStreamingTransform<double[][]> {
         }
         
         // Update tracking variables
-        previousBufferState = currentBufferData;
         lastProcessedIndex = currentSize - 1;
         coefficientsDirty = false;
         
@@ -256,19 +252,44 @@ public class StreamingMODWT extends AbstractStreamingTransform<double[][]> {
     
     /**
      * Update a range of coefficients using circular convolution.
+     * 
+     * Optimized for better cache locality and fewer modulo operations.
      */
     private void updateCoefficientRange(double[] input, double[] filter, 
                                       double[] output, int startIndex, int endIndex) {
         int N = input.length;
         int filterLength = filter.length;
         
-        for (int n = startIndex; n < endIndex; n++) {
-            double sum = 0.0;
-            for (int m = 0; m < filterLength; m++) {
-                int signalIndex = (n - m + N) % N;
-                sum += input[signalIndex] * filter[m];
+        // Optimize for the common case where we don't need modulo arithmetic
+        if (startIndex >= filterLength - 1 && endIndex <= N) {
+            // No wraparound needed - use direct indexing for better performance
+            for (int n = startIndex; n < endIndex; n++) {
+                double sum = 0.0;
+                // Unroll by 4 for better pipelining (if filter is long enough)
+                int m = 0;
+                for (; m < filterLength - 3; m += 4) {
+                    sum += input[n - m] * filter[m] +
+                           input[n - m - 1] * filter[m + 1] +
+                           input[n - m - 2] * filter[m + 2] +
+                           input[n - m - 3] * filter[m + 3];
+                }
+                // Handle remaining elements
+                for (; m < filterLength; m++) {
+                    sum += input[n - m] * filter[m];
+                }
+                output[n] = sum;
             }
-            output[n] = sum;
+        } else {
+            // General case with circular indexing
+            for (int n = startIndex; n < endIndex; n++) {
+                double sum = 0.0;
+                for (int m = 0; m < filterLength; m++) {
+                    // Use Math.floorMod for correct negative modulo
+                    int signalIndex = Math.floorMod(n - m, N);
+                    sum += input[signalIndex] * filter[m];
+                }
+                output[n] = sum;
+            }
         }
     }
     
@@ -331,7 +352,6 @@ public class StreamingMODWT extends AbstractStreamingTransform<double[][]> {
         
         // Reset incremental update state
         lastProcessedIndex = -1;
-        previousBufferState = null;
         cachedGFilters = null;
         cachedHFilters = null;
         
