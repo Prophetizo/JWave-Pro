@@ -315,8 +315,11 @@ public class StreamingMODWT extends AbstractStreamingTransform<double[][]> {
             for (int n = startIndex; n < endIndex; n++) {
                 double sum = 0.0;
                 for (int m = 0; m < filterLength; m++) {
-                    // Use Math.floorMod for correct negative modulo
-                    int signalIndex = Math.floorMod(n - m, N);
+                    // Inline modulo for performance - avoid Math.floorMod overhead
+                    int signalIndex = n - m;
+                    if (signalIndex < 0) {
+                        signalIndex += N;
+                    }
                     sum += input[signalIndex] * filter[m];
                 }
                 output[n] = sum;

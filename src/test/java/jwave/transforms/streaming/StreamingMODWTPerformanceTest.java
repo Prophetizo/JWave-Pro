@@ -25,6 +25,70 @@ import static org.junit.Assert.*;
 @Ignore("Performance tests - exclude from CI/CD")
 public class StreamingMODWTPerformanceTest {
     
+    /**
+     * Helper class to hold performance test results.
+     */
+    private static class PerformanceResult {
+        final String strategyName;
+        final long totalTimeNanos;
+        final int numUpdates;
+        final StreamingMODWT transform;
+        
+        PerformanceResult(String strategyName, long totalTimeNanos, int numUpdates, StreamingMODWT transform) {
+            this.strategyName = strategyName;
+            this.totalTimeNanos = totalTimeNanos;
+            this.numUpdates = numUpdates;
+            this.transform = transform;
+        }
+        
+        long getTotalTimeMillis() {
+            return totalTimeNanos / 1_000_000;
+        }
+        
+        double getTimePerUpdateMillis() {
+            return getTotalTimeMillis() / (double) numUpdates;
+        }
+    }
+    
+    /**
+     * Run performance test for a specific strategy and configuration.
+     */
+    private PerformanceResult runPerformanceTest(
+            StreamingTransformConfig.UpdateStrategy strategy,
+            int bufferSize,
+            int maxLevel,
+            int initialLoad,
+            double[][] updates,
+            boolean accessCoefficientsInfrequently) {
+        
+        StreamingTransformConfig config = StreamingTransformConfig.builder()
+            .bufferSize(bufferSize)
+            .maxLevel(maxLevel)
+            .updateStrategy(strategy)
+            .build();
+        
+        StreamingMODWT transform = new StreamingMODWT(new Haar1(), config);
+        
+        // Initial load if specified
+        if (initialLoad > 0) {
+            transform.update(generateData(initialLoad, -1));
+        }
+        
+        // Measure update performance
+        long startTime = System.nanoTime();
+        for (int i = 0; i < updates.length; i++) {
+            transform.update(updates[i]);
+            
+            // For LAZY strategy with infrequent access pattern
+            if (accessCoefficientsInfrequently && i % 100 == 0) {
+                transform.getCurrentCoefficients();
+            }
+        }
+        long totalTime = System.nanoTime() - startTime;
+        
+        return new PerformanceResult(strategy.name(), totalTime, updates.length, transform);
+    }
+    
     @Test
     public void compareUpdateStrategyPerformance() {
         int bufferSize = 4096;
@@ -32,212 +96,127 @@ public class StreamingMODWTPerformanceTest {
         int numUpdates = 1000;
         int updateSize = 100;
         
-        Haar1 wavelet = new Haar1();
-        
-        // Test FULL strategy
-        StreamingTransformConfig fullConfig = StreamingTransformConfig.builder()
-            .bufferSize(bufferSize)
-            .maxLevel(maxLevel)
-            .updateStrategy(StreamingTransformConfig.UpdateStrategy.FULL)
-            .build();
-        
-        StreamingMODWT fullTransform = new StreamingMODWT(wavelet, fullConfig);
-        
-        long fullStart = System.nanoTime();
+        // Prepare updates
+        double[][] updates = new double[numUpdates][];
         for (int i = 0; i < numUpdates; i++) {
-            double[] data = generateData(updateSize, i);
-            fullTransform.update(data);
+            updates[i] = generateData(updateSize, i);
         }
-        long fullTime = System.nanoTime() - fullStart;
         
-        // Test LAZY strategy with infrequent access
-        StreamingTransformConfig lazyConfig = StreamingTransformConfig.builder()
-            .bufferSize(bufferSize)
-            .maxLevel(maxLevel)
-            .updateStrategy(StreamingTransformConfig.UpdateStrategy.LAZY)
-            .build();
+        // Run tests for each strategy
+        PerformanceResult fullResult = runPerformanceTest(
+            StreamingTransformConfig.UpdateStrategy.FULL, 
+            bufferSize, maxLevel, 0, updates, false);
         
-        StreamingMODWT lazyTransform = new StreamingMODWT(wavelet, lazyConfig);
+        PerformanceResult incResult = runPerformanceTest(
+            StreamingTransformConfig.UpdateStrategy.INCREMENTAL,
+            bufferSize, maxLevel, 0, updates, false);
         
-        long lazyStart = System.nanoTime();
-        for (int i = 0; i < numUpdates; i++) {
-            double[] data = generateData(updateSize, i);
-            lazyTransform.update(data);
-            
-            // Only access coefficients every 100 updates
-            if (i % 100 == 0) {
-                lazyTransform.getCurrentCoefficients();
-            }
-        }
-        long lazyTime = System.nanoTime() - lazyStart;
-        
-        // Test INCREMENTAL strategy
-        StreamingTransformConfig incConfig = StreamingTransformConfig.builder()
-            .bufferSize(bufferSize)
-            .maxLevel(maxLevel)
-            .updateStrategy(StreamingTransformConfig.UpdateStrategy.INCREMENTAL)
-            .build();
-        
-        StreamingMODWT incTransform = new StreamingMODWT(wavelet, incConfig);
-        
-        long incStart = System.nanoTime();
-        for (int i = 0; i < numUpdates; i++) {
-            double[] data = generateData(updateSize, i);
-            incTransform.update(data);
-        }
-        long incTime = System.nanoTime() - incStart;
+        PerformanceResult lazyResult = runPerformanceTest(
+            StreamingTransformConfig.UpdateStrategy.LAZY,
+            bufferSize, maxLevel, 0, updates, true);
         
         // Print results
         System.out.println("Performance comparison for " + numUpdates + " updates:");
-        System.out.println("FULL strategy: " + (fullTime / 1_000_000) + " ms");
-        System.out.println("INCREMENTAL strategy: " + (incTime / 1_000_000) + " ms");
-        System.out.println("LAZY strategy: " + (lazyTime / 1_000_000) + " ms");
-        System.out.println("INCREMENTAL speedup over FULL: " + String.format("%.2fx", (double)fullTime / incTime));
-        System.out.println("LAZY speedup over FULL: " + String.format("%.2fx", (double)fullTime / lazyTime));
+        System.out.println("FULL strategy: " + fullResult.getTotalTimeMillis() + " ms");
+        System.out.println("INCREMENTAL strategy: " + incResult.getTotalTimeMillis() + " ms");
+        System.out.println("LAZY strategy: " + lazyResult.getTotalTimeMillis() + " ms");
+        System.out.println("INCREMENTAL speedup over FULL: " + 
+            String.format("%.2fx", (double)fullResult.totalTimeNanos / incResult.totalTimeNanos));
+        System.out.println("LAZY speedup over FULL: " + 
+            String.format("%.2fx", (double)fullResult.totalTimeNanos / lazyResult.totalTimeNanos));
         
-        // INCREMENTAL should be faster than FULL
-        assertTrue("INCREMENTAL should be faster than FULL", incTime < fullTime);
-        
-        // LAZY should be significantly faster when coefficients are accessed infrequently
+        // Assertions
+        assertTrue("INCREMENTAL should be faster than FULL", 
+            incResult.totalTimeNanos < fullResult.totalTimeNanos);
         assertTrue("LAZY should be faster than FULL for infrequent access", 
-                  lazyTime < fullTime);
+            lazyResult.totalTimeNanos < fullResult.totalTimeNanos);
     }
     
     @Test
     public void compareIncrementalPerformanceWithSmallUpdates() {
-        // Test with larger buffer and smaller updates to show INCREMENTAL benefits
         int bufferSize = 8192;
         int maxLevel = 6;
         int numUpdates = 500;
         int updateSize = 10; // Small updates
         
-        Haar1 wavelet = new Haar1();
-        
-        // Test FULL strategy
-        StreamingTransformConfig fullConfig = StreamingTransformConfig.builder()
-            .bufferSize(bufferSize)
-            .maxLevel(maxLevel)
-            .updateStrategy(StreamingTransformConfig.UpdateStrategy.FULL)
-            .build();
-        
-        StreamingMODWT fullTransform = new StreamingMODWT(wavelet, fullConfig);
-        
-        // Fill buffer initially
-        fullTransform.update(generateData(bufferSize, -1));
-        
-        long fullStart = System.nanoTime();
+        // Prepare updates
+        double[][] updates = new double[numUpdates][];
         for (int i = 0; i < numUpdates; i++) {
-            double[] data = generateData(updateSize, i);
-            fullTransform.update(data);
+            updates[i] = generateData(updateSize, i);
         }
-        long fullTime = System.nanoTime() - fullStart;
         
-        // Test INCREMENTAL strategy
-        StreamingTransformConfig incConfig = StreamingTransformConfig.builder()
-            .bufferSize(bufferSize)
-            .maxLevel(maxLevel)
-            .updateStrategy(StreamingTransformConfig.UpdateStrategy.INCREMENTAL)
-            .build();
+        // Test with initial buffer fill
+        PerformanceResult fullResult = runPerformanceTest(
+            StreamingTransformConfig.UpdateStrategy.FULL,
+            bufferSize, maxLevel, bufferSize, updates, false);
         
-        StreamingMODWT incTransform = new StreamingMODWT(wavelet, incConfig);
-        
-        // Fill buffer initially
-        incTransform.update(generateData(bufferSize, -1));
-        
-        long incStart = System.nanoTime();
-        for (int i = 0; i < numUpdates; i++) {
-            double[] data = generateData(updateSize, i);
-            incTransform.update(data);
-        }
-        long incTime = System.nanoTime() - incStart;
+        PerformanceResult incResult = runPerformanceTest(
+            StreamingTransformConfig.UpdateStrategy.INCREMENTAL,
+            bufferSize, maxLevel, bufferSize, updates, false);
         
         // Print results
         System.out.println("\nPerformance with small updates (buffer=" + bufferSize + ", update=" + updateSize + "):");
-        System.out.println("FULL strategy: " + (fullTime / 1_000_000) + " ms");
-        System.out.println("INCREMENTAL strategy: " + (incTime / 1_000_000) + " ms");
-        System.out.println("Speedup: " + String.format("%.2fx", (double)fullTime / incTime));
+        System.out.println("FULL strategy: " + fullResult.getTotalTimeMillis() + " ms");
+        System.out.println("INCREMENTAL strategy: " + incResult.getTotalTimeMillis() + " ms");
+        System.out.println("Speedup: " + 
+            String.format("%.2fx", (double)fullResult.totalTimeNanos / incResult.totalTimeNanos));
         
-        // With small updates, INCREMENTAL should show better improvement
-        assertTrue("INCREMENTAL should be faster than FULL with small updates", incTime < fullTime);
+        assertTrue("INCREMENTAL should be faster than FULL with small updates", 
+            incResult.totalTimeNanos < fullResult.totalTimeNanos);
     }
     
     @Test
     public void testRealtimeStreamingScenario() {
-        // Realistic scenario: initial buffer load, then single samples
         int initialLoad = 512;
         int bufferSize = 1024;
         int maxLevel = 6;
-        int numSingleSamples = 1000; // 1000 individual samples
-        
-        Haar1 wavelet = new Haar1();
+        int numSingleSamples = 1000;
         
         System.out.println("\nReal-time streaming scenario:");
         System.out.println("Initial load: " + initialLoad + " samples");
         System.out.println("Then: " + numSingleSamples + " individual samples");
         System.out.println();
         
-        // Test FULL strategy
-        StreamingTransformConfig fullConfig = StreamingTransformConfig.builder()
-            .bufferSize(bufferSize)
-            .maxLevel(maxLevel)
-            .updateStrategy(StreamingTransformConfig.UpdateStrategy.FULL)
-            .build();
-        
-        StreamingMODWT fullTransform = new StreamingMODWT(wavelet, fullConfig);
-        
-        // Initial load
-        fullTransform.update(generateData(initialLoad, 0));
-        
-        // Time single sample updates
-        long fullStart = System.nanoTime();
+        // Prepare single-sample updates
+        double[][] singleSamples = new double[numSingleSamples][];
         for (int i = 0; i < numSingleSamples; i++) {
-            fullTransform.update(new double[] { Math.sin(2 * Math.PI * i / 100) });
+            singleSamples[i] = new double[] { Math.sin(2 * Math.PI * i / 100) };
         }
-        long fullTime = System.nanoTime() - fullStart;
         
-        // Test INCREMENTAL strategy
-        StreamingTransformConfig incConfig = StreamingTransformConfig.builder()
-            .bufferSize(bufferSize)
-            .maxLevel(maxLevel)
-            .updateStrategy(StreamingTransformConfig.UpdateStrategy.INCREMENTAL)
-            .build();
+        // Run tests
+        PerformanceResult fullResult = runPerformanceTest(
+            StreamingTransformConfig.UpdateStrategy.FULL,
+            bufferSize, maxLevel, initialLoad, singleSamples, false);
         
-        StreamingMODWT incTransform = new StreamingMODWT(wavelet, incConfig);
-        
-        // Initial load
-        incTransform.update(generateData(initialLoad, 0));
-        
-        // Time single sample updates
-        long incStart = System.nanoTime();
-        for (int i = 0; i < numSingleSamples; i++) {
-            incTransform.update(new double[] { Math.sin(2 * Math.PI * i / 100) });
-        }
-        long incTime = System.nanoTime() - incStart;
+        PerformanceResult incResult = runPerformanceTest(
+            StreamingTransformConfig.UpdateStrategy.INCREMENTAL,
+            bufferSize, maxLevel, initialLoad, singleSamples, false);
         
         // Calculate per-sample timing
-        double fullPerSample = (fullTime / 1_000_000.0) / numSingleSamples;
-        double incPerSample = (incTime / 1_000_000.0) / numSingleSamples;
+        double fullPerSample = fullResult.getTimePerUpdateMillis();
+        double incPerSample = incResult.getTimePerUpdateMillis();
         
         // Print results
         System.out.println("Processing " + numSingleSamples + " single-sample updates:");
         System.out.println("FULL strategy:");
-        System.out.println("  Total time: " + (fullTime / 1_000_000) + " ms");
+        System.out.println("  Total time: " + fullResult.getTotalTimeMillis() + " ms");
         System.out.println("  Per sample: " + String.format("%.3f", fullPerSample) + " ms");
         System.out.println("  Sample rate: " + String.format("%.0f", 1000.0 / fullPerSample) + " samples/second");
         
         System.out.println("\nINCREMENTAL strategy:");
-        System.out.println("  Total time: " + (incTime / 1_000_000) + " ms");
+        System.out.println("  Total time: " + incResult.getTotalTimeMillis() + " ms");
         System.out.println("  Per sample: " + String.format("%.3f", incPerSample) + " ms");
         System.out.println("  Sample rate: " + String.format("%.0f", 1000.0 / incPerSample) + " samples/second");
         
-        System.out.println("\nSpeedup: " + String.format("%.2fx", (double)fullTime / incTime));
+        System.out.println("\nSpeedup: " + 
+            String.format("%.2fx", (double)fullResult.totalTimeNanos / incResult.totalTimeNanos));
         System.out.println("Additional throughput: " + 
             String.format("%.0f", (1000.0 / incPerSample) - (1000.0 / fullPerSample)) + 
             " more samples/second");
         
-        // Verify correctness - coefficients should match
-        double[][] fullCoeffs = fullTransform.getCurrentCoefficients();
-        double[][] incCoeffs = incTransform.getCurrentCoefficients();
+        // Verify correctness
+        double[][] fullCoeffs = fullResult.transform.getCurrentCoefficients();
+        double[][] incCoeffs = incResult.transform.getCurrentCoefficients();
         
         double maxDiff = 0.0;
         for (int i = 0; i < fullCoeffs.length; i++) {
@@ -250,7 +229,8 @@ public class StreamingMODWTPerformanceTest {
         System.out.println("\nCorrectness check - max coefficient difference: " + 
             String.format("%.2e", maxDiff));
         assertTrue("Coefficients should match", maxDiff < 1e-10);
-        assertTrue("INCREMENTAL should be faster for single-sample updates", incTime < fullTime);
+        assertTrue("INCREMENTAL should be faster for single-sample updates", 
+            incResult.totalTimeNanos < fullResult.totalTimeNanos);
     }
     
     @Test
@@ -278,27 +258,29 @@ public class StreamingMODWTPerformanceTest {
         double[][] coeffs1 = transform.getCurrentCoefficients();
         long firstAccessTime = System.nanoTime() - firstAccessStart;
         
-        // Measure second access (uses cache)
+        // Measure second access (should be cached)
         long secondAccessStart = System.nanoTime();
         double[][] coeffs2 = transform.getCurrentCoefficients();
         long secondAccessTime = System.nanoTime() - secondAccessStart;
         
         System.out.println("LAZY computation overhead:");
-        System.out.println("First access (with computation): " + (firstAccessTime / 1_000) + " μs");
-        System.out.println("Second access (cached): " + (secondAccessTime / 1_000) + " μs");
-        System.out.println("Overhead ratio: " + String.format("%.1fx", 
-                          (double)firstAccessTime / secondAccessTime));
+        System.out.println("First access (with computation): " + (firstAccessTime / 1000) + " μs");
+        System.out.println("Second access (cached): " + (secondAccessTime / 1000) + " μs");
+        System.out.println("Overhead ratio: " + 
+            String.format("%.1fx", (double)firstAccessTime / secondAccessTime));
         
-        // First access should be significantly slower due to computation
-        assertTrue("First access should be slower than cached access", 
-                  firstAccessTime > secondAccessTime * 5);
+        // Verify same results
+        assertEquals("Cached results should be identical", coeffs1, coeffs2);
+        
+        // First access should be significantly slower
+        assertTrue("First access should trigger computation", 
+                  firstAccessTime > secondAccessTime * 10);
     }
     
-    private double[] generateData(int size, int seed) {
+    private double[] generateData(int size, int offset) {
         double[] data = new double[size];
         for (int i = 0; i < size; i++) {
-            data[i] = Math.sin(2 * Math.PI * (i + seed) / 50) + 
-                     0.5 * Math.cos(2 * Math.PI * (i + seed) / 13);
+            data[i] = Math.sin(2 * Math.PI * (offset * size + i) / size);
         }
         return data;
     }
