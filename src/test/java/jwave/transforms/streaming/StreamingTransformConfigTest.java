@@ -37,7 +37,7 @@ public class StreamingTransformConfigTest {
             .maxLevel(5)
             .updateStrategy(StreamingTransformConfig.UpdateStrategy.FULL)
             .cacheIntermediateResults(false)
-            .enableParallelProcessing(true)
+            .parallelProcessingEnabled(true)
             .updateBatchSize(10)
             .build();
         

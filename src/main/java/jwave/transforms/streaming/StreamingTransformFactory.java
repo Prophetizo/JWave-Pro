@@ -121,6 +121,9 @@ public class StreamingTransformFactory {
      * @param wavelet The wavelet to use (may be null for FFT/DFT)
      * @param bufferSize The size of the circular buffer
      * @return A configured streaming transform instance
+     * @throws IllegalArgumentException if type is null, bufferSize is invalid,
+     *         or wavelet is null when required
+     * @throws UnsupportedOperationException if the transform type is not yet implemented
      */
     public static StreamingTransform<?> create(
             TransformType type,
@@ -180,8 +183,13 @@ public class StreamingTransformFactory {
      * @param type The transform type
      * @param desiredLevel The desired decomposition level (if applicable)
      * @return Recommended buffer size
+     * @throws IllegalArgumentException if the transform type is unknown or desiredLevel is negative
      */
     public static int getRecommendedBufferSize(TransformType type, int desiredLevel) {
+        if (desiredLevel < 0) {
+            throw new IllegalArgumentException("Desired level cannot be negative: " + desiredLevel);
+        }
+        
         switch (type) {
             case FWT:
             case WPT:

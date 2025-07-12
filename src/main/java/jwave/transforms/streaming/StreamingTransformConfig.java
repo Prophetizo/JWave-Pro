@@ -119,8 +119,8 @@ public class StreamingTransformConfig {
             return this;
         }
         
-        public Builder enableParallelProcessing(boolean enable) {
-            this.enableParallelProcessing = enable;
+        public Builder parallelProcessingEnabled(boolean enabled) {
+            this.enableParallelProcessing = enabled;
             return this;
         }
         

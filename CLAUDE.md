@@ -61,7 +61,7 @@ The streaming package (`/src/main/java/jwave/transforms/streaming/`) provides in
 - `StreamingTransform` - Interface for all streaming transforms
 - `AbstractStreamingTransform` - Base class with common functionality
 - `StreamingTransformListener` - Event-driven updates
-- `StreamingTransformConfig` - Configuration with update strategies
+- `StreamingTransformConfig` - Configuration with update strategies (builder pattern)
 
 ### Adding New Transforms
 1. Extend `BasicTransform` abstract class

@@ -219,6 +219,18 @@ public class StreamingTransformFactoryBufferSizeTest {
         }
     }
     
+    @Test(expected = IllegalArgumentException.class)
+    public void testNegativeDesiredLevel() {
+        StreamingTransformFactory.getRecommendedBufferSize(
+            StreamingTransformFactory.TransformType.FWT, -1);
+    }
+    
+    @Test(expected = IllegalArgumentException.class)
+    public void testNegativeDesiredLevelForMODWT() {
+        StreamingTransformFactory.getRecommendedBufferSize(
+            StreamingTransformFactory.TransformType.MODWT, -5);
+    }
+    
     @Test
     public void testBufferSizeFormulas() {
         // Verify the formulas match the constants
