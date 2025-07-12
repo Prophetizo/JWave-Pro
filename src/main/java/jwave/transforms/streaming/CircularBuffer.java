@@ -119,19 +119,16 @@ public class CircularBuffer {
         }
         
         // Copy the data, accounting for circular buffer wraparound
-        for (int i = 0; i < availableSamples; i++) {
-            int chronologicalIdx = startPos + i;
-            int bufferIdx;
-            
-            if (!hasWrapped) {
-                // Simple case: no wrap yet
-                bufferIdx = chronologicalIdx;
-            } else {
-                // Wrapped case: translate chronological index to buffer index
-                bufferIdx = (writeIndex + chronologicalIdx) % capacity;
+        if (!hasWrapped) {
+            // Simple case: no wrap yet - use bulk copy for efficiency
+            System.arraycopy(buffer, startPos, window, zeroPadding, availableSamples);
+        } else {
+            // Wrapped case: need element-by-element copy
+            for (int i = 0; i < availableSamples; i++) {
+                int chronologicalIdx = startPos + i;
+                int bufferIdx = (writeIndex + chronologicalIdx) % capacity;
+                window[zeroPadding + i] = buffer[bufferIdx];
             }
-            
-            window[zeroPadding + i] = buffer[bufferIdx];
         }
         
         return window;
