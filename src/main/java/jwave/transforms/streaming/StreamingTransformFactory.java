@@ -158,9 +158,9 @@ public class StreamingTransformFactory {
     /**
      * Calculate a power-of-2 buffer size with overflow protection.
      * 
-     * @param desiredPower The desired power of 2
+     * @param desiredLevel The desired decomposition level
      * @param minPower The minimum allowed power
-     * @param extraLevels Additional levels to add to desiredPower
+     * @param extraLevels Additional levels to add to desiredLevel
      * @return Buffer size as 2^power, capped at MAX_BUFFER_POWER
      */
     private static int calculatePowerOfTwoSize(int desiredLevel, int minPower, int extraLevels) {
