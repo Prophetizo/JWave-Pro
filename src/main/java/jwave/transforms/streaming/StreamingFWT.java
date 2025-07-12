@@ -227,10 +227,13 @@ public class StreamingFWT extends AbstractStreamingTransform<double[]> {
     /**
      * Get coefficients at a specific decomposition level.
      * 
-     * The FWT stores coefficients in a specific pattern:
-     * - First half: approximation coefficients at level 1
-     * - Second half: detail coefficients at level 1
-     * - This pattern continues recursively in the approximation part
+     * The FWT stores coefficients in a hierarchical pattern:
+     * For a signal of length N:
+     * - Level 1: [A1 (N/2) | D1 (N/2)]
+     * - Level 2: [A2 (N/4) | D2 (N/4) | D1 (N/2)]
+     * - Level 3: [A3 (N/8) | D3 (N/8) | D2 (N/4) | D1 (N/2)]
+     * 
+     * At each level, we decompose the approximation from the previous level.
      * 
      * @param level The decomposition level (1 to maxLevel)
      * @return Array containing [approximation, detail] coefficients at the level
@@ -245,21 +248,20 @@ public class StreamingFWT extends AbstractStreamingTransform<double[]> {
         
         double[] coeffs = getCachedCoefficients();
         
-        // Calculate the size and position of coefficients at this level
-        int levelSize = effectiveBufferSize >> level; // size / 2^level
-        int offset = 0;
+        // For FWT, at level L:
+        // - Approximation coefficients are at indices [0, N/2^L)
+        // - Detail coefficients are at indices [N/2^L, N/2^(L-1))
         
-        // Navigate to the correct level
-        for (int l = 1; l < level; l++) {
-            offset += (effectiveBufferSize >> l); // Skip detail coefficients
-        }
+        int approxSize = effectiveBufferSize >> level;        // N/2^L
+        int detailSize = effectiveBufferSize >> (level - 1);  // N/2^(L-1)
         
-        // Extract approximation and detail coefficients
-        double[] approximation = new double[levelSize];
-        double[] detail = new double[levelSize];
+        // Approximation is always at the beginning
+        double[] approximation = new double[approxSize];
+        System.arraycopy(coeffs, 0, approximation, 0, approxSize);
         
-        System.arraycopy(coeffs, offset, approximation, 0, levelSize);
-        System.arraycopy(coeffs, offset + levelSize, detail, 0, levelSize);
+        // Detail coefficients start right after approximation
+        double[] detail = new double[approxSize];
+        System.arraycopy(coeffs, approxSize, detail, 0, approxSize);
         
         return new double[][] { approximation, detail };
     }

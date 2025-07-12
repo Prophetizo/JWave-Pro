@@ -266,6 +266,41 @@ public class StreamingFWTTest {
     }
     
     @Test
+    public void testGetCoefficientsAtLevelStructure() {
+        // Test that coefficient extraction follows the correct FWT structure
+        StreamingTransformConfig config = StreamingTransformConfig.builder()
+            .bufferSize(16)
+            .maxLevel(4)
+            .build();
+        
+        StreamingFWT fwt = new StreamingFWT(new Haar1(), config);
+        
+        // Use a simple signal to verify structure
+        double[] signal = new double[16];
+        for (int i = 0; i < 16; i++) {
+            signal[i] = i;
+        }
+        fwt.update(signal);
+        
+        // Verify coefficient sizes at each level
+        for (int level = 1; level <= 4; level++) {
+            double[][] levelCoeffs = fwt.getCoefficientsAtLevel(level);
+            int expectedSize = 16 >> level; // 16/2^level
+            
+            assertEquals("Level " + level + " should have 2 arrays", 2, levelCoeffs.length);
+            assertEquals("Approximation size at level " + level, expectedSize, levelCoeffs[0].length);
+            assertEquals("Detail size at level " + level, expectedSize, levelCoeffs[1].length);
+            
+            // The approximation at each level should be the first expectedSize elements
+            double[] fullCoeffs = fwt.getCurrentCoefficients();
+            for (int i = 0; i < expectedSize; i++) {
+                assertEquals("Approximation coefficient " + i + " at level " + level,
+                           fullCoeffs[i], levelCoeffs[0][i], DELTA);
+            }
+        }
+    }
+    
+    @Test
     public void testGetCoefficientsAtLevel() {
         StreamingTransformConfig config = StreamingTransformConfig.builder()
             .bufferSize(64)
