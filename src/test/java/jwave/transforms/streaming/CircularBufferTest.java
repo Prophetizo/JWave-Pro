@@ -194,4 +194,73 @@ public class CircularBufferTest {
         buffer.append(new double[] {1.0, 2.0, 3.0});
         buffer.getWindow(0, -5); // Should throw
     }
+    
+    @Test
+    public void testBulkAppendOptimization() {
+        CircularBuffer buffer = new CircularBuffer(10);
+        
+        // Test bulk append without wrap
+        double[] data1 = {1.0, 2.0, 3.0, 4.0, 5.0};
+        buffer.append(data1);
+        assertArrayEquals(data1, buffer.toArray(), DELTA);
+        
+        // Test bulk append with wrap
+        double[] data2 = {6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0};
+        buffer.append(data2);
+        // Should contain: [3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+        assertArrayEquals(new double[] {3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0}, 
+                         buffer.toArray(), DELTA);
+    }
+    
+    @Test
+    public void testBulkAppendExceedsCapacity() {
+        CircularBuffer buffer = new CircularBuffer(5);
+        
+        // Append more samples than capacity
+        double[] largeSamples = {1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0};
+        buffer.append(largeSamples);
+        
+        // Should only keep the last 5 samples
+        assertArrayEquals(new double[] {6.0, 7.0, 8.0, 9.0, 10.0}, buffer.toArray(), DELTA);
+        assertEquals(5, buffer.size());
+        assertTrue(buffer.hasWrapped());
+    }
+    
+    @Test
+    public void testBulkAppendExactCapacity() {
+        CircularBuffer buffer = new CircularBuffer(5);
+        
+        // Append exactly capacity samples
+        double[] samples = {1.0, 2.0, 3.0, 4.0, 5.0};
+        buffer.append(samples);
+        
+        assertArrayEquals(samples, buffer.toArray(), DELTA);
+        assertEquals(5, buffer.size());
+        assertTrue(buffer.isFull());
+        assertFalse(buffer.hasWrapped()); // Haven't overwritten anything yet
+    }
+    
+    @Test
+    public void testBulkAppendEmpty() {
+        CircularBuffer buffer = new CircularBuffer(5);
+        buffer.append(1.0);
+        
+        // Append empty array should not change buffer
+        buffer.append(new double[0]);
+        
+        assertEquals(1, buffer.size());
+        assertEquals(1.0, buffer.get(0), DELTA);
+    }
+    
+    @Test
+    public void testSmallArrayFallback() {
+        CircularBuffer buffer = new CircularBuffer(10);
+        
+        // Small arrays should use element-wise append
+        double[] small = {1.0, 2.0, 3.0};
+        buffer.append(small);
+        
+        assertArrayEquals(small, buffer.toArray(), DELTA);
+        assertEquals(3, buffer.size());
+    }
 }

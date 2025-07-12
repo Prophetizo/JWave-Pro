@@ -58,9 +58,51 @@ public class CircularBuffer {
             throw new IllegalArgumentException("Samples array cannot be null");
         }
         
-        for (double sample : samples) {
-            append(sample);
+        if (samples.length == 0) {
+            return;
         }
+        
+        // For small arrays, the overhead of bulk copy might not be worth it
+        if (samples.length < 8) {
+            for (double sample : samples) {
+                append(sample);
+            }
+            return;
+        }
+        
+        // Bulk copy optimization for larger arrays
+        int samplesLength = samples.length;
+        
+        // If appending more samples than capacity, only keep the most recent
+        if (samplesLength >= capacity) {
+            // Copy only the last 'capacity' samples
+            System.arraycopy(samples, samplesLength - capacity, buffer, 0, capacity);
+            writeIndex = 0;
+            size = capacity;
+            hasWrapped = true;
+            return;
+        }
+        
+        int remainingCapacity = capacity - writeIndex;
+        
+        if (samplesLength <= remainingCapacity) {
+            // All samples fit without wrapping
+            System.arraycopy(samples, 0, buffer, writeIndex, samplesLength);
+            writeIndex = (writeIndex + samplesLength) % capacity;
+        } else {
+            // Need to wrap around - copy in two segments
+            // First segment: fill to end of buffer
+            System.arraycopy(samples, 0, buffer, writeIndex, remainingCapacity);
+            
+            // Second segment: copy remaining samples from beginning
+            int remainingSamples = samplesLength - remainingCapacity;
+            System.arraycopy(samples, remainingCapacity, buffer, 0, remainingSamples);
+            writeIndex = remainingSamples;
+            hasWrapped = true;
+        }
+        
+        // Update size
+        size = Math.min(size + samplesLength, capacity);
     }
     
     /**
