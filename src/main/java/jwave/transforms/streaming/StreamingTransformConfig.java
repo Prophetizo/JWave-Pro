@@ -72,7 +72,7 @@ public class StreamingTransformConfig {
         return cacheIntermediateResults;
     }
     
-    public boolean isEnableParallelProcessing() {
+    public boolean isParallelProcessingEnabled() {
         return enableParallelProcessing;
     }
     
@@ -144,7 +144,7 @@ public class StreamingTransformConfig {
             // Validate configuration
             int maxPossibleLevel = (int) (Math.log(bufferSize) / LOG_2);
             if (effectiveMaxLevel > maxPossibleLevel) {
-                throw new IllegalStateException(
+                throw new IllegalArgumentException(
                     "Max level " + effectiveMaxLevel + " too high for buffer size " + bufferSize +
                     " (max possible: " + maxPossibleLevel + ")"
                 );

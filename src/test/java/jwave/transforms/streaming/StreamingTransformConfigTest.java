@@ -26,7 +26,7 @@ public class StreamingTransformConfigTest {
         assertEquals(10, config.getMaxLevel()); // Auto-detected: log2(1024) = 10
         assertEquals(StreamingTransformConfig.UpdateStrategy.INCREMENTAL, config.getUpdateStrategy());
         assertTrue(config.isCacheIntermediateResults());
-        assertFalse(config.isEnableParallelProcessing());
+        assertFalse(config.isParallelProcessingEnabled());
         assertEquals(1, config.getUpdateBatchSize());
     }
     
@@ -45,7 +45,7 @@ public class StreamingTransformConfigTest {
         assertEquals(5, config.getMaxLevel());
         assertEquals(StreamingTransformConfig.UpdateStrategy.FULL, config.getUpdateStrategy());
         assertFalse(config.isCacheIntermediateResults());
-        assertTrue(config.isEnableParallelProcessing());
+        assertTrue(config.isParallelProcessingEnabled());
         assertEquals(10, config.getUpdateBatchSize());
     }
     
@@ -113,7 +113,7 @@ public class StreamingTransformConfigTest {
             .build();
     }
     
-    @Test(expected = IllegalStateException.class)
+    @Test(expected = IllegalArgumentException.class)
     public void testMaxLevelTooHighForBufferSize() {
         StreamingTransformConfig.builder()
             .bufferSize(256)  // max possible level = 8
