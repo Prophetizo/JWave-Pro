@@ -13,6 +13,7 @@ import jwave.transforms.wavelets.haar.Haar1;
 import jwave.transforms.wavelets.daubechies.Daubechies4;
 import jwave.transforms.wavelets.symlets.Symlet8;
 import jwave.exceptions.JWaveException;
+import java.util.Arrays;
 import org.junit.Test;
 import static org.junit.Assert.*;
 
