@@ -303,6 +303,72 @@ public class StreamingMODWTTest {
         }
     }
     
+    @Test
+    public void testLazyStrategyDefersComputation() {
+        // Create transform with LAZY strategy
+        StreamingTransformConfig config = StreamingTransformConfig.builder()
+            .bufferSize(256)
+            .maxLevel(2)
+            .updateStrategy(StreamingTransformConfig.UpdateStrategy.LAZY)
+            .build();
+            
+        StreamingMODWT transform = new StreamingMODWT(haar, config);
+        
+        // Add initial data
+        double[] signal1 = new double[100];
+        Arrays.fill(signal1, 1.0);
+        double[][] coeffs1 = transform.update(signal1);
+        
+        // With LAZY, coefficients should be empty/zero initially
+        for (int level = 0; level < coeffs1.length; level++) {
+            for (int i = 0; i < coeffs1[level].length; i++) {
+                assertEquals("LAZY should return zeros initially", 
+                            0.0, coeffs1[level][i], 1e-10);
+            }
+        }
+        
+        // Now access coefficients - this should trigger computation
+        double[][] coeffs2 = transform.getCurrentCoefficients();
+        
+        // Verify coefficients are computed
+        boolean hasNonZero = false;
+        for (int level = 0; level < coeffs2.length; level++) {
+            for (int i = 0; i < coeffs2[level].length; i++) {
+                if (Math.abs(coeffs2[level][i]) > 1e-10) {
+                    hasNonZero = true;
+                    break;
+                }
+            }
+        }
+        assertTrue("Coefficients should be computed when accessed", hasNonZero);
+        
+        // Add more data
+        double[] signal2 = new double[50];
+        Arrays.fill(signal2, 2.0);
+        double[][] coeffs3 = transform.update(signal2);
+        
+        // Should still return previous coefficients (stale)
+        assertArrayEquals("LAZY should return stale coefficients", 
+                         coeffs2[0], coeffs3[0], 1e-10);
+        
+        // Access detail coefficients - should trigger recomputation
+        double[] details = transform.getDetailCoefficients(1);
+        assertNotNull(details);
+        
+        // Now getCurrentCoefficients should return updated values
+        double[][] coeffs4 = transform.getCurrentCoefficients();
+        
+        // Coefficients should be different after adding new data
+        boolean isDifferent = false;
+        for (int i = 0; i < coeffs4[0].length; i++) {
+            if (Math.abs(coeffs4[0][i] - coeffs2[0][i]) > 1e-10) {
+                isDifferent = true;
+                break;
+            }
+        }
+        assertTrue("Coefficients should be updated after new data", isDifferent);
+    }
+    
     @Test(expected = IllegalArgumentException.class)
     public void testNullWavelet() {
         new StreamingMODWT(null, defaultConfig);

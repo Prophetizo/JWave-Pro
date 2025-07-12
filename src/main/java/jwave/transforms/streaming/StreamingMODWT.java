@@ -34,6 +34,7 @@ public class StreamingMODWT extends AbstractStreamingTransform<double[][]> {
     private final StreamingTransformConfig config;
     private double[][] currentCoefficients;
     private int effectiveBufferSize;
+    private boolean coefficientsDirty = false;
     
     /**
      * Create a new streaming MODWT transform.
@@ -92,6 +93,35 @@ public class StreamingMODWT extends AbstractStreamingTransform<double[][]> {
     
     @Override
     protected double[][] performUpdate(double[] newSamples) {
+        switch (config.getUpdateStrategy()) {
+            case FULL:
+                // Always recompute all coefficients immediately
+                return recomputeCoefficients();
+                
+            case INCREMENTAL:
+                // TODO: Implement true incremental MODWT update
+                // This would require:
+                // 1. Tracking which coefficients are affected by new samples
+                // 2. Computing only the boundary effects for each level
+                // 3. Updating circular convolution results incrementally
+                // For now, fall back to full recomputation
+                return recomputeCoefficients();
+                
+            case LAZY:
+                // Just mark coefficients as dirty, don't compute yet
+                coefficientsDirty = true;
+                // Return current (possibly stale) coefficients
+                return currentCoefficients != null ? currentCoefficients : 
+                       new double[maxLevel + 1][effectiveBufferSize];
+        }
+        
+        return currentCoefficients;
+    }
+    
+    /**
+     * Recompute coefficients from the current buffer state.
+     */
+    private double[][] recomputeCoefficients() {
         // Get current buffer data with power-of-2 padding if needed
         double[] bufferData = buffer.toArray();
         if (bufferData.length < effectiveBufferSize) {
@@ -99,39 +129,16 @@ public class StreamingMODWT extends AbstractStreamingTransform<double[][]> {
             bufferData = Arrays.copyOf(bufferData, effectiveBufferSize);
         }
         
-        switch (config.getUpdateStrategy()) {
-            case FULL:
-                // Recompute all coefficients
-                currentCoefficients = computeTransform(bufferData);
-                break;
-                
-            case INCREMENTAL:
-                // For MODWT, incremental updates are complex due to the
-                // circular convolution at each level. For now, we'll
-                // recompute but this can be optimized in the future.
-                currentCoefficients = computeTransform(bufferData);
-                break;
-                
-            case LAZY:
-                // Mark coefficients as dirty, compute on next access
-                // For now, compute immediately
-                currentCoefficients = computeTransform(bufferData);
-                break;
-        }
-        
+        currentCoefficients = computeTransform(bufferData);
+        coefficientsDirty = false;
         return currentCoefficients;
     }
     
     @Override
     protected double[][] getCachedCoefficients() {
-        if (currentCoefficients == null) {
-            // Compute coefficients if not available
-            double[] bufferData = buffer.toArray();
-            if (bufferData.length < effectiveBufferSize) {
-                // Pad with zeros to reach power-of-2 size
-                bufferData = Arrays.copyOf(bufferData, effectiveBufferSize);
-            }
-            currentCoefficients = computeTransform(bufferData);
+        // Check if we need to recompute due to LAZY strategy
+        if (currentCoefficients == null || coefficientsDirty) {
+            recomputeCoefficients();
         }
         
         // Return a copy to prevent external modification
@@ -145,6 +152,7 @@ public class StreamingMODWT extends AbstractStreamingTransform<double[][]> {
     @Override
     protected void resetTransformState() {
         currentCoefficients = null;
+        coefficientsDirty = false;
         // Clear MODWT filter cache to free memory
         modwt.clearFilterCache();
     }
@@ -188,16 +196,17 @@ public class StreamingMODWT extends AbstractStreamingTransform<double[][]> {
         double[][] coeffs = getCachedCoefficients();
         double[][] mra = new double[coeffs.length][];
         
-        // Create temporary coefficient array for reconstruction
-        double[][] tempCoeffs = new double[coeffs.length][];
-        for (int i = 0; i < coeffs.length; i++) {
-            tempCoeffs[i] = new double[coeffs[i].length];
-        }
-        
         // Reconstruct each component
         for (int level = 0; level < coeffs.length; level++) {
-            // Copy only the current level coefficients
-            tempCoeffs[level] = Arrays.copyOf(coeffs[level], coeffs[level].length);
+            // Create temporary coefficient array with only the current level non-zero
+            double[][] tempCoeffs = new double[coeffs.length][];
+            for (int i = 0; i < coeffs.length; i++) {
+                if (i == level) {
+                    tempCoeffs[i] = Arrays.copyOf(coeffs[i], coeffs[i].length);
+                } else {
+                    tempCoeffs[i] = new double[coeffs[i].length];
+                }
+            }
             
             // Reconstruct this component
             try {
@@ -206,9 +215,6 @@ public class StreamingMODWT extends AbstractStreamingTransform<double[][]> {
                 notifyError(e, false);
                 mra[level] = new double[effectiveBufferSize];
             }
-            
-            // Clear for next iteration
-            Arrays.fill(tempCoeffs[level], 0.0);
         }
         
         return mra;
