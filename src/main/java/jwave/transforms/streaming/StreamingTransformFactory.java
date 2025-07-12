@@ -74,15 +74,10 @@ public class StreamingTransformFactory {
         }
         
         // Validate wavelet requirement
-        if (requiresWavelet(type)) {
-            if (wavelet == null) {
-                throw new IllegalArgumentException(
-                    "Transform type " + type + " requires a wavelet"
-                );
-            }
-        } else if (wavelet != null) {
-            // Warn if wavelet is provided but not needed
-            // This is not an error, just informational
+        if (requiresWavelet(type) && wavelet == null) {
+            throw new IllegalArgumentException(
+                "Transform type " + type + " requires a wavelet"
+            );
         }
         
         // Create appropriate streaming wrapper

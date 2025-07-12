@@ -154,6 +154,8 @@ public class StreamingMODWT extends AbstractStreamingTransform<double[][]> {
     
     @Override
     protected void resetTransformState() {
+        // Note: The buffer is cleared by the parent class's reset() method
+        // This method only handles transform-specific state
         currentCoefficients = null;
         coefficientsDirty = false;
         // Clear MODWT filter cache to free memory
