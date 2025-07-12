@@ -22,6 +22,15 @@ import jwave.transforms.wavelets.Wavelet;
  */
 public class StreamingTransformFactory {
     
+    // Buffer size constants
+    private static final int FWT_LEVEL_BUFFER_FACTOR = 3;  // Extra levels for boundary handling
+    private static final int FWT_MIN_BUFFER_POWER = 8;     // Minimum 2^8 = 256 samples
+    private static final int MODWT_SAMPLES_PER_LEVEL = 128;
+    private static final int MODWT_MIN_BUFFER_SIZE = 512;
+    private static final int CWT_SAMPLES_PER_SCALE = 64;
+    private static final int CWT_MIN_BUFFER_SIZE = 256;
+    private static final int FFT_MIN_BUFFER_POWER = 10;    // Minimum 2^10 = 1024 samples
+    
     /**
      * Supported transform types for streaming.
      */
@@ -157,20 +166,20 @@ public class StreamingTransformFactory {
             case FWT:
             case WPT:
                 // FWT/WPT require power-of-2
-                return 1 << Math.max(desiredLevel + 3, 8); // Min 256
+                return 1 << Math.max(desiredLevel + FWT_LEVEL_BUFFER_FACTOR, FWT_MIN_BUFFER_POWER);
                 
             case MODWT:
                 // MODWT can handle any size but benefits from larger buffers
-                return Math.max(desiredLevel * 128, 512);
+                return Math.max(desiredLevel * MODWT_SAMPLES_PER_LEVEL, MODWT_MIN_BUFFER_SIZE);
                 
             case CWT:
                 // CWT needs enough samples for largest scale
-                return Math.max(desiredLevel * 64, 256);
+                return Math.max(desiredLevel * CWT_SAMPLES_PER_SCALE, CWT_MIN_BUFFER_SIZE);
                 
             case FFT:
             case DFT:
                 // FFT performs best with power-of-2
-                return 1 << Math.max(desiredLevel, 10); // Min 1024
+                return 1 << Math.max(desiredLevel, FFT_MIN_BUFFER_POWER);
                 
             default:
                 return 1024;
