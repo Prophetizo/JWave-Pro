@@ -65,6 +65,7 @@ public class StreamingTransformFactory {
             Wavelet wavelet, 
             StreamingTransformConfig config) {
         
+        // Validate all parameters first
         if (type == null) {
             throw new IllegalArgumentException("Transform type cannot be null");
         }
@@ -92,9 +93,7 @@ public class StreamingTransformFactory {
                 );
                 
             case MODWT:
-                throw new UnsupportedOperationException(
-                    "Streaming MODWT not yet implemented"
-                );
+                return new StreamingMODWT(wavelet, config);
                 
             case CWT:
                 throw new UnsupportedOperationException(
@@ -186,6 +185,9 @@ public class StreamingTransformFactory {
      * @throws IllegalArgumentException if the transform type is unknown or desiredLevel is negative
      */
     public static int getRecommendedBufferSize(TransformType type, int desiredLevel) {
+        if (type == null) {
+            throw new IllegalArgumentException("Transform type cannot be null");
+        }
         if (desiredLevel < 0) {
             throw new IllegalArgumentException("Desired level cannot be negative: " + desiredLevel);
         }

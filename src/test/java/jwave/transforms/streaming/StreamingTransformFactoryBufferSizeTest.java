@@ -220,6 +220,11 @@ public class StreamingTransformFactoryBufferSizeTest {
     }
     
     @Test(expected = IllegalArgumentException.class)
+    public void testNullTransformType() {
+        StreamingTransformFactory.getRecommendedBufferSize(null, 5);
+    }
+    
+    @Test(expected = IllegalArgumentException.class)
     public void testNegativeDesiredLevel() {
         StreamingTransformFactory.getRecommendedBufferSize(
             StreamingTransformFactory.TransformType.FWT, -1);

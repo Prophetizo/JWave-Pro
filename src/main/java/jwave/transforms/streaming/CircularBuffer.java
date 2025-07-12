@@ -150,22 +150,23 @@ public class CircularBuffer {
         
         double[] window = new double[length];
         
+        // Calculate the position of the most recent sample in the window
+        int windowEndPos = size - offset;
+        
         // Calculate how many samples we can actually provide
-        int availableSamples = Math.min(size - offset, length);
+        int availableSamples = Math.min(windowEndPos, length);
         if (availableSamples <= 0) {
             // Requested window is entirely before our data
             return window; // All zeros
         }
         
-        // Calculate the starting position in chronological order
-        int startPos = (size - offset) - length;
+        // Calculate where in the result array to start writing data
+        // If we need fewer samples than the window length, pad with zeros at the beginning
+        int zeroPadding = length - availableSamples;
         
-        // If startPos is negative, we need zero padding at the beginning
-        int zeroPadding = 0;
-        if (startPos < 0) {
-            zeroPadding = -startPos;
-            startPos = 0;
-        }
+        // Calculate the starting position in the buffer (oldest sample in window)
+        // This is derived from availableSamples to avoid confusion
+        int startPos = windowEndPos - availableSamples;
         
         // Copy the data, accounting for circular buffer wraparound
         if (!hasWrapped) {
