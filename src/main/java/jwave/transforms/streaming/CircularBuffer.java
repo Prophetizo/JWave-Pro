@@ -123,11 +123,23 @@ public class CircularBuffer {
             // Simple case: no wrap yet - use bulk copy for efficiency
             System.arraycopy(buffer, startPos, window, zeroPadding, availableSamples);
         } else {
-            // Wrapped case: need element-by-element copy
-            for (int i = 0; i < availableSamples; i++) {
-                int chronologicalIdx = startPos + i;
-                int bufferIdx = (writeIndex + chronologicalIdx) % capacity;
-                window[zeroPadding + i] = buffer[bufferIdx];
+            // Wrapped case: optimize with bulk copies for contiguous segments
+            int oldestIndex = writeIndex;
+            int chronologicalStart = (oldestIndex + startPos) % capacity;
+            
+            if (chronologicalStart + availableSamples <= capacity) {
+                // All data is in one contiguous segment
+                System.arraycopy(buffer, chronologicalStart, window, zeroPadding, availableSamples);
+            } else {
+                // Data spans the wrap point - copy in two segments
+                int firstSegmentSize = capacity - chronologicalStart;
+                int secondSegmentSize = availableSamples - firstSegmentSize;
+                
+                // Copy from chronologicalStart to end of buffer
+                System.arraycopy(buffer, chronologicalStart, window, zeroPadding, firstSegmentSize);
+                
+                // Copy from beginning of buffer
+                System.arraycopy(buffer, 0, window, zeroPadding + firstSegmentSize, secondSegmentSize);
             }
         }
         
