@@ -85,7 +85,7 @@ public class StreamingMODWTPerformanceTest {
         
         // Initial load if specified
         if (initialLoad > 0) {
-            transform.update(generateData(initialLoad, INITIAL_LOAD_OFFSET));
+            transform.update(generateInitialData(initialLoad));
         }
         
         // Measure update performance
@@ -316,6 +316,16 @@ public class StreamingMODWTPerformanceTest {
         // First access should be significantly slower
         assertTrue("First access should trigger computation", 
                   firstAccessTime > secondAccessTime * 10);
+    }
+    
+    /**
+     * Generate initial buffer load data with a distinct pattern.
+     * 
+     * @param size Size of the initial data
+     * @return Array of initial samples
+     */
+    private double[] generateInitialData(int size) {
+        return generateData(size, INITIAL_LOAD_OFFSET);
     }
     
     private double[] generateData(int size, int offset) {
