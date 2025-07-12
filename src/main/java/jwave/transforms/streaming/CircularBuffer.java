@@ -156,7 +156,6 @@ public class CircularBuffer {
         } else {
             // Data has wrapped: need to reconstruct chronological order
             int oldestIndex = writeIndex;
-            int newestIndex = (writeIndex - 1 + capacity) % capacity;
             
             // Copy from oldest to end of buffer
             System.arraycopy(buffer, oldestIndex, result, 0, capacity - oldestIndex);
