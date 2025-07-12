@@ -122,6 +122,24 @@ public class CircularBufferTest {
     }
     
     @Test
+    public void testGetWindowOffsetExceedsSize() {
+        CircularBuffer buffer = new CircularBuffer(5);
+        buffer.append(new double[] {1.0, 2.0, 3.0});
+        
+        // Request window with offset beyond available data
+        double[] window = buffer.getWindow(5, 3);
+        assertArrayEquals(new double[] {0.0, 0.0, 0.0}, window, DELTA);
+        
+        // Request window with offset at boundary
+        window = buffer.getWindow(3, 3);
+        assertArrayEquals(new double[] {0.0, 0.0, 0.0}, window, DELTA);
+        
+        // Request window with offset partially beyond available data
+        window = buffer.getWindow(2, 3);
+        assertArrayEquals(new double[] {0.0, 0.0, 1.0}, window, DELTA);
+    }
+    
+    @Test
     public void testClear() {
         CircularBuffer buffer = new CircularBuffer(3);
         buffer.append(new double[] {1.0, 2.0, 3.0});
