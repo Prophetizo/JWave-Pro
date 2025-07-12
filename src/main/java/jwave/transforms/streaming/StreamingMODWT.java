@@ -48,6 +48,9 @@ public class StreamingMODWT extends AbstractStreamingTransform<double[][]> {
         if (wavelet == null) {
             throw new IllegalArgumentException("Wavelet cannot be null");
         }
+        if (config == null) {
+            throw new IllegalArgumentException("Configuration cannot be null");
+        }
         
         this.wavelet = wavelet;
         this.config = config;

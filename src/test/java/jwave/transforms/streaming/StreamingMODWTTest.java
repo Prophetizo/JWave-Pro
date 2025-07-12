@@ -374,6 +374,11 @@ public class StreamingMODWTTest {
         new StreamingMODWT(null, defaultConfig);
     }
     
+    @Test(expected = IllegalArgumentException.class)
+    public void testNullConfig() {
+        new StreamingMODWT(haar, null);
+    }
+    
     @Test
     public void testMultipleInitialization() {
         StreamingMODWT transform = new StreamingMODWT(haar, defaultConfig);
