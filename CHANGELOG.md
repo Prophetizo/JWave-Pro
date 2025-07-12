@@ -113,7 +113,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Reduced GC pressure across all transforms
   - Optimized inner loops for cache efficiency
 
-## [2.0.0] - Previous Release
+## [1.0.0] - Previous Release
 
 ### Original JWave Features
 - Fast Wavelet Transform (FWT)
