@@ -31,6 +31,9 @@ import static org.junit.Assert.*;
 @Ignore("Performance tests - exclude from CI/CD")
 public class StreamingMODWTPerformanceTest {
     
+    // Constants for test data generation
+    private static final int INITIAL_LOAD_OFFSET = -1;
+    
     /**
      * Helper class to hold performance test results.
      */
