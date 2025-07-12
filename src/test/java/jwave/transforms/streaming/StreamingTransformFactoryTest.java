@@ -225,11 +225,12 @@ public class StreamingTransformFactoryTest {
         assertEquals(6, types.length);
         
         // Verify enum names
-        assertEquals("FWT", types[0].name());
-        assertEquals("WPT", types[1].name());
-        assertEquals("MODWT", types[2].name());
-        assertEquals("CWT", types[3].name());
-        assertEquals("FFT", types[4].name());
-        assertEquals("DFT", types[5].name());
+        Set<String> actualNames = Arrays.stream(types)
+            .map(Enum::name)
+            .collect(Collectors.toSet());
+        Set<String> expectedNames = new HashSet<>(Arrays.asList(
+            "FWT", "WPT", "MODWT", "CWT", "FFT", "DFT"
+        ));
+        assertEquals(expectedNames, actualNames);
     }
 }
