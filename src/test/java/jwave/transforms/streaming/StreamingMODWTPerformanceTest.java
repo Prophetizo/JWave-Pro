@@ -80,7 +80,7 @@ public class StreamingMODWTPerformanceTest {
         
         // Initial load if specified
         if (initialLoad > 0) {
-            transform.update(generateData(initialLoad, -1));
+            transform.update(generateData(initialLoad, INITIAL_LOAD_OFFSET));
         }
         
         // Measure update performance
