@@ -89,6 +89,24 @@ public class StreamingFWTTest {
         new StreamingFWT(new Haar1(), config);
     }
     
+    @Test(expected = IllegalArgumentException.class)
+    public void testNegativeBufferSize() {
+        StreamingTransformConfig config = StreamingTransformConfig.builder()
+            .bufferSize(-10)
+            .build();
+        
+        new StreamingFWT(new Haar1(), config);
+    }
+    
+    @Test(expected = IllegalArgumentException.class)
+    public void testZeroBufferSize() {
+        StreamingTransformConfig config = StreamingTransformConfig.builder()
+            .bufferSize(0)
+            .build();
+        
+        new StreamingFWT(new Haar1(), config);
+    }
+    
     @Test
     public void testDirectComparison() {
         // Simple test to verify the streaming FWT produces same results as standard FWT
@@ -366,9 +384,8 @@ public class StreamingFWTTest {
         double[] coeffsAfter = fwt.getCurrentCoefficients();
         
         // Verify all coefficients are zero after processing zeros
-        for (double c : coeffsAfter) {
-            assertEquals("All coefficients should be zero", 0.0, c, DELTA);
-        }
+        assertArrayEquals("All coefficients should be zero", 
+                         new double[coeffsAfter.length], coeffsAfter, DELTA);
     }
     
     @Test

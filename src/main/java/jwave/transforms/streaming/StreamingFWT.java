@@ -288,15 +288,31 @@ public class StreamingFWT extends AbstractStreamingTransform<double[]> {
     /**
      * Get the next power of two greater than or equal to n.
      * 
-     * @param n The input value
+     * @param n The input value (must be positive)
      * @return The next power of two
+     * @throws IllegalArgumentException if n is not positive
      */
     private static int getNextPowerOfTwo(int n) {
-        if (n <= 1) return 1;
-        int power = 1;
-        while (power < n) {
+        if (n <= 0) {
+            throw new IllegalArgumentException("Buffer size must be positive, got: " + n);
+        }
+        if (n == 1) {
+            return 1;
+        }
+        
+        // Find the next power of 2
+        // For efficiency, use bit manipulation
+        // This handles overflow by returning Integer.MIN_VALUE (which is negative)
+        int power = Integer.highestOneBit(n);
+        if (power < n) {
             power <<= 1;
         }
+        
+        // Check for overflow
+        if (power < 0) {
+            throw new IllegalArgumentException("Buffer size too large, would overflow: " + n);
+        }
+        
         return power;
     }
     
