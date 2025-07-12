@@ -19,6 +19,12 @@ import static org.junit.Assert.*;
  * To run performance tests locally, remove @Ignore or use:
  * mvn test -Dtest=StreamingMODWTPerformanceTest -DenablePerformanceTests=true
  * 
+ * Note: This class uses System.out.println for immediate developer feedback.
+ * For production benchmarking, consider using:
+ * - JMH (Java Microbenchmark Harness) for more accurate measurements
+ * - SLF4J/Logback for configurable logging
+ * - Dedicated performance monitoring tools
+ * 
  * @author Prophetizo
  * @date 2025-07-12
  */
@@ -89,6 +95,35 @@ public class StreamingMODWTPerformanceTest {
         return new PerformanceResult(strategy.name(), totalTime, updates.length, transform);
     }
     
+    /**
+     * Generate an array of updates for testing.
+     * 
+     * @param numUpdates Number of updates to generate
+     * @param updateSize Size of each update
+     * @return Array of update arrays
+     */
+    private double[][] generateUpdates(int numUpdates, int updateSize) {
+        double[][] updates = new double[numUpdates][];
+        for (int i = 0; i < numUpdates; i++) {
+            updates[i] = generateData(updateSize, i);
+        }
+        return updates;
+    }
+    
+    /**
+     * Generate single-sample updates for real-time streaming scenario.
+     * 
+     * @param numSamples Number of single-sample updates to generate
+     * @return Array of single-element arrays
+     */
+    private double[][] generateSingleSampleUpdates(int numSamples) {
+        double[][] singleSamples = new double[numSamples][];
+        for (int i = 0; i < numSamples; i++) {
+            singleSamples[i] = new double[] { Math.sin(2 * Math.PI * i / 100) };
+        }
+        return singleSamples;
+    }
+    
     @Test
     public void compareUpdateStrategyPerformance() {
         int bufferSize = 4096;
@@ -97,10 +132,7 @@ public class StreamingMODWTPerformanceTest {
         int updateSize = 100;
         
         // Prepare updates
-        double[][] updates = new double[numUpdates][];
-        for (int i = 0; i < numUpdates; i++) {
-            updates[i] = generateData(updateSize, i);
-        }
+        double[][] updates = generateUpdates(numUpdates, updateSize);
         
         // Run tests for each strategy
         PerformanceResult fullResult = runPerformanceTest(
@@ -140,10 +172,7 @@ public class StreamingMODWTPerformanceTest {
         int updateSize = 10; // Small updates
         
         // Prepare updates
-        double[][] updates = new double[numUpdates][];
-        for (int i = 0; i < numUpdates; i++) {
-            updates[i] = generateData(updateSize, i);
-        }
+        double[][] updates = generateUpdates(numUpdates, updateSize);
         
         // Test with initial buffer fill
         PerformanceResult fullResult = runPerformanceTest(
@@ -177,11 +206,8 @@ public class StreamingMODWTPerformanceTest {
         System.out.println("Then: " + numSingleSamples + " individual samples");
         System.out.println();
         
-        // Prepare single-sample updates
-        double[][] singleSamples = new double[numSingleSamples][];
-        for (int i = 0; i < numSingleSamples; i++) {
-            singleSamples[i] = new double[] { Math.sin(2 * Math.PI * i / 100) };
-        }
+        // Prepare single-sample updates with custom generation
+        double[][] singleSamples = generateSingleSampleUpdates(numSingleSamples);
         
         // Run tests
         PerformanceResult fullResult = runPerformanceTest(
