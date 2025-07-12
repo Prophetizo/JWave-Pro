@@ -295,8 +295,15 @@ public class StreamingMODWTPerformanceTest {
         System.out.println("Overhead ratio: " + 
             String.format("%.1fx", (double)firstAccessTime / secondAccessTime));
         
-        // Verify same results
-        assertEquals("Cached results should be identical", coeffs1, coeffs2);
+        // Verify same results - deep comparison since getCachedCoefficients returns a copy
+        assertNotNull("First coefficients should not be null", coeffs1);
+        assertNotNull("Second coefficients should not be null", coeffs2);
+        assertEquals("Should have same number of levels", coeffs1.length, coeffs2.length);
+        
+        for (int i = 0; i < coeffs1.length; i++) {
+            assertArrayEquals("Level " + i + " coefficients should be identical", 
+                            coeffs1[i], coeffs2[i], 1e-10);
+        }
         
         // First access should be significantly slower
         assertTrue("First access should trigger computation", 
