@@ -9,19 +9,14 @@ package jwave.transforms.streaming;
 
 import jwave.transforms.wavelets.haar.Haar1;
 import org.junit.Test;
-import org.junit.Ignore;
 import static org.junit.Assert.*;
 
 /**
  * Performance tests for StreamingMODWT update strategies.
  * 
- * These tests are ignored by default to avoid slowing down regular test runs.
- * Remove @Ignore to run performance measurements.
- * 
  * @author Prophetizo
  * @date 2025-07-12
  */
-@Ignore("Performance tests - run manually")
 public class StreamingMODWTPerformanceTest {
     
     @Test
