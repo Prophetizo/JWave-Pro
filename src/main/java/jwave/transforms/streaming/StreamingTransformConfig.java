@@ -135,31 +135,30 @@ public class StreamingTransformConfig {
         }
         
         public StreamingTransformConfig build() {
+            // Store original maxLevel for potential reuse
+            int originalMaxLevel = this.maxLevel;
+            
             // Auto-detect max level if not specified
-            int effectiveMaxLevel = maxLevel;
-            if (effectiveMaxLevel == -1) {
-                effectiveMaxLevel = (int) (Math.log(bufferSize) / LOG_2);
+            if (this.maxLevel == -1) {
+                this.maxLevel = (int) (Math.log(bufferSize) / LOG_2);
             }
             
             // Validate configuration
             int maxPossibleLevel = (int) (Math.log(bufferSize) / LOG_2);
-            if (effectiveMaxLevel > maxPossibleLevel) {
+            if (this.maxLevel > maxPossibleLevel) {
                 throw new IllegalArgumentException(
-                    "Max level " + effectiveMaxLevel + " too high for buffer size " + bufferSize +
+                    "Max level " + this.maxLevel + " too high for buffer size " + bufferSize +
                     " (max possible: " + maxPossibleLevel + ")"
                 );
             }
             
-            // Create new builder to avoid mutating this one
-            Builder configBuilder = new Builder();
-            configBuilder.bufferSize = this.bufferSize;
-            configBuilder.maxLevel = effectiveMaxLevel;
-            configBuilder.updateStrategy = this.updateStrategy;
-            configBuilder.cacheIntermediateResults = this.cacheIntermediateResults;
-            configBuilder.enableParallelProcessing = this.enableParallelProcessing;
-            configBuilder.updateBatchSize = this.updateBatchSize;
+            // Create config with current values
+            StreamingTransformConfig config = new StreamingTransformConfig(this);
             
-            return new StreamingTransformConfig(configBuilder);
+            // Restore original maxLevel for builder reuse
+            this.maxLevel = originalMaxLevel;
+            
+            return config;
         }
     }
 }
