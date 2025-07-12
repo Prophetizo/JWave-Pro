@@ -48,7 +48,7 @@ public abstract class AbstractStreamingTransform<T> implements StreamingTransfor
     }
     
     @Override
-    public void initialize(int bufferSize, int maxLevel) {
+    public synchronized void initialize(int bufferSize, int maxLevel) {
         if (bufferSize <= 0) {
             throw new IllegalArgumentException("Buffer size must be positive: " + bufferSize);
         }
@@ -78,7 +78,7 @@ public abstract class AbstractStreamingTransform<T> implements StreamingTransfor
     }
     
     @Override
-    public T update(double[] newSamples) {
+    public synchronized T update(double[] newSamples) {
         if (!initialized) {
             throw new IllegalStateException("Transform not initialized. Call initialize() first.");
         }
@@ -86,7 +86,8 @@ public abstract class AbstractStreamingTransform<T> implements StreamingTransfor
             throw new IllegalArgumentException("New samples array cannot be null");
         }
         if (newSamples.length == 0) {
-            throw new IllegalArgumentException("New samples array cannot be empty");
+            // Empty array is allowed, just return current coefficients
+            return getCachedCoefficients();
         }
         
         // Track if buffer becomes full
@@ -110,7 +111,7 @@ public abstract class AbstractStreamingTransform<T> implements StreamingTransfor
     }
     
     @Override
-    public T getCurrentCoefficients() {
+    public synchronized T getCurrentCoefficients() {
         if (!initialized) {
             throw new IllegalStateException("Transform not initialized. Call initialize() first.");
         }
@@ -129,7 +130,7 @@ public abstract class AbstractStreamingTransform<T> implements StreamingTransfor
     }
     
     @Override
-    public void reset() {
+    public synchronized void reset() {
         if (buffer != null) {
             buffer.clear();
         }
