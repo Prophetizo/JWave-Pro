@@ -1,0 +1,179 @@
+/**
+ * JWave Enhanced Edition
+ *
+ * Copyright 2025 Prophetizo and original authors
+ *
+ * Licensed under the MIT License
+ */
+package jwave.transforms.streaming;
+
+import jwave.transforms.BasicTransform;
+import jwave.transforms.FastWaveletTransform;
+import jwave.transforms.wavelets.Wavelet;
+
+/**
+ * Factory for creating streaming transform instances.
+ * 
+ * This factory provides a convenient way to create streaming wrappers
+ * for various transform types with appropriate configuration.
+ * 
+ * @author Prophetizo
+ * @date 2025-07-12
+ */
+public class StreamingTransformFactory {
+    
+    /**
+     * Supported transform types for streaming.
+     */
+    public enum TransformType {
+        /** Fast Wavelet Transform (DWT) */
+        FWT,
+        /** Wavelet Packet Transform */
+        WPT,
+        /** Maximal Overlap Discrete Wavelet Transform */
+        MODWT,
+        /** Continuous Wavelet Transform */
+        CWT,
+        /** Fast Fourier Transform */
+        FFT,
+        /** Discrete Fourier Transform */
+        DFT
+    }
+    
+    /**
+     * Create a streaming transform with the specified configuration.
+     * 
+     * @param type The type of transform to create
+     * @param wavelet The wavelet to use (may be null for FFT/DFT)
+     * @param config The streaming configuration
+     * @return A configured streaming transform instance
+     * @throws IllegalArgumentException if parameters are invalid
+     * @throws UnsupportedOperationException if transform type not yet implemented
+     */
+    public static StreamingTransform<?> create(
+            TransformType type, 
+            Wavelet wavelet, 
+            StreamingTransformConfig config) {
+        
+        if (type == null) {
+            throw new IllegalArgumentException("Transform type cannot be null");
+        }
+        if (config == null) {
+            throw new IllegalArgumentException("Configuration cannot be null");
+        }
+        
+        // Validate wavelet requirement
+        if (requiresWavelet(type) && wavelet == null) {
+            throw new IllegalArgumentException(
+                "Transform type " + type + " requires a wavelet"
+            );
+        }
+        
+        // Create appropriate streaming wrapper
+        switch (type) {
+            case FWT:
+                throw new UnsupportedOperationException(
+                    "Streaming FWT not yet implemented"
+                );
+                
+            case WPT:
+                throw new UnsupportedOperationException(
+                    "Streaming WPT not yet implemented"
+                );
+                
+            case MODWT:
+                throw new UnsupportedOperationException(
+                    "Streaming MODWT not yet implemented"
+                );
+                
+            case CWT:
+                throw new UnsupportedOperationException(
+                    "Streaming CWT not yet implemented"
+                );
+                
+            case FFT:
+            case DFT:
+                throw new UnsupportedOperationException(
+                    "Streaming " + type + " not yet implemented"
+                );
+                
+            default:
+                throw new IllegalArgumentException(
+                    "Unknown transform type: " + type
+                );
+        }
+    }
+    
+    /**
+     * Create a streaming transform with default configuration.
+     * 
+     * @param type The type of transform to create
+     * @param wavelet The wavelet to use (may be null for FFT/DFT)
+     * @param bufferSize The size of the circular buffer
+     * @return A configured streaming transform instance
+     */
+    public static StreamingTransform<?> create(
+            TransformType type,
+            Wavelet wavelet,
+            int bufferSize) {
+        
+        StreamingTransformConfig config = StreamingTransformConfig.builder()
+            .bufferSize(bufferSize)
+            .build();
+            
+        return create(type, wavelet, config);
+    }
+    
+    /**
+     * Check if a transform type requires a wavelet.
+     * 
+     * @param type The transform type
+     * @return true if the transform requires a wavelet
+     */
+    private static boolean requiresWavelet(TransformType type) {
+        switch (type) {
+            case FWT:
+            case WPT:
+            case MODWT:
+            case CWT:
+                return true;
+            case FFT:
+            case DFT:
+                return false;
+            default:
+                return false;
+        }
+    }
+    
+    /**
+     * Get the recommended buffer size for a transform type.
+     * 
+     * @param type The transform type
+     * @param desiredLevel The desired decomposition level (if applicable)
+     * @return Recommended buffer size
+     */
+    public static int getRecommendedBufferSize(TransformType type, int desiredLevel) {
+        switch (type) {
+            case FWT:
+            case WPT:
+                // FWT/WPT require power-of-2
+                return 1 << Math.max(desiredLevel + 3, 8); // Min 256
+                
+            case MODWT:
+                // MODWT can handle any size but benefits from larger buffers
+                return Math.max(desiredLevel * 128, 512);
+                
+            case CWT:
+                // CWT needs enough samples for largest scale
+                return Math.max(desiredLevel * 64, 256);
+                
+            case FFT:
+            case DFT:
+                // FFT performs best with power-of-2
+                return 1 << Math.max(desiredLevel, 10); // Min 1024
+                
+            default:
+                return 1024;
+        }
+    }
+}
