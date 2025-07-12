@@ -182,7 +182,7 @@ public class StreamingTransformFactory {
                 return 1 << Math.max(desiredLevel, FFT_MIN_BUFFER_POWER);
                 
             default:
-                return 1024;
+                throw new IllegalArgumentException("Unknown transform type: " + type);
         }
     }
 }

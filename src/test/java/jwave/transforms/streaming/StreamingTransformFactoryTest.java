@@ -12,6 +12,10 @@ import jwave.transforms.wavelets.daubechies.Daubechies4;
 import jwave.transforms.wavelets.symlets.Symlet8;
 import org.junit.Test;
 import static org.junit.Assert.*;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Unit tests for StreamingTransformFactory.

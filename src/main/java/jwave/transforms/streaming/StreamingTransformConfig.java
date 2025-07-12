@@ -18,8 +18,6 @@ package jwave.transforms.streaming;
  */
 public class StreamingTransformConfig {
     
-    private static final double LOG_2 = Math.log(2);
-    
     public enum UpdateStrategy {
         /**
          * Update all coefficients on each new sample.
@@ -140,11 +138,11 @@ public class StreamingTransformConfig {
             
             // Auto-detect max level if not specified
             if (this.maxLevel == -1) {
-                this.maxLevel = (int) (Math.log(bufferSize) / LOG_2);
+                this.maxLevel = (int) (Math.log(bufferSize) / StreamingConstants.LOG_2);
             }
             
             // Validate configuration
-            int maxPossibleLevel = (int) (Math.log(bufferSize) / LOG_2);
+            int maxPossibleLevel = (int) (Math.log(bufferSize) / StreamingConstants.LOG_2);
             if (this.maxLevel > maxPossibleLevel) {
                 throw new IllegalArgumentException(
                     "Max level " + this.maxLevel + " too high for buffer size " + bufferSize +

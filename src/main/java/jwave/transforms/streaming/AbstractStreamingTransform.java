@@ -193,7 +193,7 @@ public abstract class AbstractStreamingTransform<T> implements StreamingTransfor
      */
     protected void validateMaxLevel(int bufferSize, int maxLevel) {
         // Calculate maximum possible level based on buffer size
-        int maxPossibleLevel = (int) (Math.log(bufferSize) / Math.log(2));
+        int maxPossibleLevel = (int) (Math.log(bufferSize) / StreamingConstants.LOG_2);
         if (maxLevel > maxPossibleLevel) {
             throw new IllegalArgumentException(
                 "Maximum level " + maxLevel + " too high for buffer size " + bufferSize +
