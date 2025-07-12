@@ -116,11 +116,6 @@ public class StreamingFWTTest {
             return;
         }
         
-        // Print for debugging
-        System.out.println("Signal: " + Arrays.toString(signal));
-        System.out.println("Standard coeffs: " + Arrays.toString(standardCoeffs));
-        System.out.println("Streaming coeffs: " + Arrays.toString(streamingCoeffs));
-        
         // Compare
         assertArrayEquals("Coefficients should match", standardCoeffs, streamingCoeffs, DELTA);
     }

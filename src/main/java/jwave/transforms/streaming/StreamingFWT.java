@@ -40,8 +40,6 @@ public class StreamingFWT extends AbstractStreamingTransform<double[]> {
     private int effectiveBufferSize;
     private boolean coefficientsDirty = false;
     
-    // Cache for previous buffer state to detect changes
-    private double[] previousBufferState;
     
     /**
      * Create a new streaming FWT transform.
@@ -93,7 +91,6 @@ public class StreamingFWT extends AbstractStreamingTransform<double[]> {
         // Initialize coefficient storage
         // FWT produces a single array with interleaved coefficients
         this.currentCoefficients = new double[effectiveBufferSize];
-        this.previousBufferState = new double[effectiveBufferSize];
     }
     
     /**
@@ -168,9 +165,6 @@ public class StreamingFWT extends AbstractStreamingTransform<double[]> {
         currentCoefficients = computeTransform(transformData);
         coefficientsDirty = false;
         
-        // Update previous state for future incremental updates
-        System.arraycopy(transformData, 0, previousBufferState, 0, effectiveBufferSize);
-        
         return currentCoefficients;
     }
     
@@ -193,58 +187,24 @@ public class StreamingFWT extends AbstractStreamingTransform<double[]> {
             return recomputeCoefficients();
         }
         
-        // Get current buffer state
-        double[] bufferData = buffer.toArray();
-        
-        // Prepare data for transform
-        double[] currentBufferData;
-        if (bufferData.length >= effectiveBufferSize) {
-            // Use the most recent effectiveBufferSize samples
-            int offset = bufferData.length - effectiveBufferSize;
-            currentBufferData = Arrays.copyOfRange(bufferData, offset, bufferData.length);
-        } else {
-            // Pad with zeros at the beginning
-            currentBufferData = new double[effectiveBufferSize];
-            int offset = effectiveBufferSize - bufferData.length;
-            System.arraycopy(bufferData, 0, currentBufferData, offset, bufferData.length);
+        // If we have new samples, the buffer has changed
+        if (newSamples.length > 0) {
+            // For FWT, due to its recursive nature and downsampling at each level,
+            // implementing a truly incremental update is complex. For now, we'll
+            // fall back to full recomputation but with optimizations.
+            // 
+            // Future optimization opportunities:
+            // 1. Lifting scheme implementation for in-place updates
+            // 2. Boundary wavelets for localized updates
+            // 3. Lazy evaluation of unaffected coefficient blocks
+            
+            return recomputeCoefficients();
         }
         
-        // Check if significant changes occurred
-        boolean significantChange = hasSignificantChange(currentBufferData, previousBufferState);
-        
-        if (!significantChange) {
-            // No significant changes, return existing coefficients
-            return currentCoefficients;
-        }
-        
-        // For FWT, due to its recursive nature and downsampling at each level,
-        // implementing a truly incremental update is complex. For now, we'll
-        // fall back to full recomputation but with optimizations.
-        // 
-        // Future optimization opportunities:
-        // 1. Lifting scheme implementation for in-place updates
-        // 2. Boundary wavelets for localized updates
-        // 3. Lazy evaluation of unaffected coefficient blocks
-        
-        return recomputeCoefficients();
+        // No new samples, return existing coefficients
+        return currentCoefficients;
     }
     
-    /**
-     * Check if the buffer has changed significantly.
-     * 
-     * @param current Current buffer state
-     * @param previous Previous buffer state
-     * @return true if significant changes detected
-     */
-    private boolean hasSignificantChange(double[] current, double[] previous) {
-        // Simple check: any non-zero difference
-        for (int i = 0; i < current.length; i++) {
-            if (current[i] != previous[i]) {
-                return true;
-            }
-        }
-        return false;
-    }
     
     @Override
     protected double[] getCachedCoefficients() {
@@ -262,7 +222,6 @@ public class StreamingFWT extends AbstractStreamingTransform<double[]> {
         // Note: The buffer is cleared by the parent class's reset() method
         // This method only handles transform-specific state
         currentCoefficients = null;
-        previousBufferState = new double[effectiveBufferSize];
         coefficientsDirty = false;
     }
     
