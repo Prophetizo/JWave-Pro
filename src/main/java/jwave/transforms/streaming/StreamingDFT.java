@@ -292,8 +292,7 @@ public class StreamingDFT extends AbstractStreamingTransform<double[]> {
      */
     private double[] performIncrementalUpdate(double[] newSamples) {
         // For large updates, full DFT might be more efficient
-        int incrementalUpdateThreshold = (int)(dftSize * INCREMENTAL_UPDATE_THRESHOLD_RATIO);
-        if (newSamples.length > incrementalUpdateThreshold) {
+        if (newSamples.length > (int)(dftSize * INCREMENTAL_UPDATE_THRESHOLD_RATIO)) {
             return recomputeDFT();
         }
         

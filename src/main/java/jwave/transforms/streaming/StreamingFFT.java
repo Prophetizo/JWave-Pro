@@ -268,8 +268,7 @@ public class StreamingFFT extends AbstractStreamingTransform<double[]> {
      */
     private double[] performIncrementalUpdate(double[] newSamples) {
         // For large updates, full FFT is more efficient
-        int incrementalUpdateThreshold = (int)(fftSize * INCREMENTAL_UPDATE_THRESHOLD_RATIO);
-        if (newSamples.length > incrementalUpdateThreshold || buffer.hasWrapped()) {
+        if (newSamples.length > (int)(fftSize * INCREMENTAL_UPDATE_THRESHOLD_RATIO) || buffer.hasWrapped()) {
             return recomputeFFT();
         }
         
