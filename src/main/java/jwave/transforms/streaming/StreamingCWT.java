@@ -405,6 +405,10 @@ public class StreamingCWT extends AbstractStreamingTransform<CWTResult> {
     /**
      * Update edge coefficients that wrap around due to circular buffer.
      * 
+     * When new samples are added near the end of the buffer, coefficients at the
+     * beginning of the buffer may need updating if their support window extends
+     * to include the new samples (due to circular buffer wraparound).
+     * 
      * @param scaleIdx Scale index
      * @param scale Scale value
      * @param supportRadius Support radius for this scale
@@ -415,16 +419,16 @@ public class StreamingCWT extends AbstractStreamingTransform<CWTResult> {
     private void updateEdgeCoefficients(int scaleIdx, double scale, int supportRadius,
                                       int newSampleStartIdx, double[] bufferData,
                                       double[] support) {
-        // Handle coefficients at the beginning whose support extends to new samples
+        // Check if we need to update coefficients at the beginning of the buffer
+        // This happens when the support radius extends beyond the new sample start
         if (supportRadius > newSampleStartIdx) {
-            int startUpdateIdx = Math.max(0, newSampleStartIdx - supportRadius);
-            int edgeUpdateCount = supportRadius - newSampleStartIdx;
+            // The main update range starts at max(0, newSampleStartIdx - supportRadius)
+            // We need to update coefficients before this point that are affected by wraparound
+            int mainRangeStart = Math.max(0, newSampleStartIdx - supportRadius);
             
-            for (int timeIdx = 0; timeIdx < edgeUpdateCount && timeIdx < bufferSize; timeIdx++) {
-                // Skip if already updated in main range
-                if (timeIdx >= startUpdateIdx) {
-                    break;
-                }
+            // Update coefficients from index 0 up to (but not including) mainRangeStart
+            // These are the edge coefficients affected by circular buffer wraparound
+            for (int timeIdx = 0; timeIdx < mainRangeStart && timeIdx < bufferSize; timeIdx++) {
                 coefficients[scaleIdx][timeIdx] = computeCoefficientDirect(
                     bufferData, timeIdx, scale, samplingRate, support
                 );

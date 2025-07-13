@@ -122,9 +122,11 @@ public class CWTResult {
         double imag = _coefficients[i][j].getImag();
         double angle = Math.atan2(imag, real);
         
-        // Normalize to (-π, π] by mapping π to -π
+        // Normalize to (-π, π] by mapping values very close to π to -π
         // This ensures unique angle representation and matches test expectations
-        phase[i][j] = (angle == Math.PI) ? -Math.PI : angle;
+        // Use a small epsilon for robust floating-point comparison
+        final double EPSILON = 1e-10;
+        phase[i][j] = (Math.abs(angle - Math.PI) < EPSILON) ? -Math.PI : angle;
       }
     }
     
