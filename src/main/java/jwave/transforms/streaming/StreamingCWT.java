@@ -259,15 +259,25 @@ public class StreamingCWT extends AbstractStreamingTransform<CWTResult> {
             return createResult();
         }
         
-        // For now, fall back to full recomputation
-        // TODO: Implement edge-based incremental updates
-        // This would involve:
-        // 1. Identifying which time indices are affected by new samples
-        // 2. For each scale, determining the cone of influence
-        // 3. Recomputing only affected coefficients
-        // 4. Handling circular buffer edge cases
+        // Perform edge-based incremental updates
+        double[] bufferData = buffer.toArray();
+        int startIndex = buffer.getStartIndexForNewSamples(newSamples.length);
+        int endIndex = buffer.getEndIndexForNewSamples(newSamples.length);
         
-        return recomputeCoefficients();
+        coeffLock.writeLock().lock();
+        try {
+            for (int scale = 0; scale < coefficients.length; scale++) {
+                double[] scaleCoefficients = coefficients[scale];
+                for (int i = startIndex; i <= endIndex; i++) {
+                    scaleCoefficients[i] = cwt.computeCoefficient(bufferData, scale, i);
+                }
+            }
+            coefficientsDirty = false;
+        } finally {
+            coeffLock.writeLock().unlock();
+        }
+        
+        return createResult();
     }
     
     /**
