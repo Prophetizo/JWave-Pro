@@ -286,70 +286,11 @@ public class StreamingDFT extends AbstractStreamingTransform<double[]> {
      * @return Updated spectrum
      */
     private double[] performIncrementalUpdate(double[] newSamples) {
-        // TODO: Debug and fix sliding DFT algorithm issues
-        // For now, always use full DFT to ensure correctness
+        // Note: INCREMENTAL strategy currently falls back to full DFT recomputation
+        // for correctness. Sliding DFT optimization can be implemented in the future
+        // using the shared updateSlidingDFTCoefficients() method and centralized
+        // threshold calculation via calculateIncrementalThreshold().
         return recomputeDFT();
-        
-        /*
-        // For large updates, full DFT might be more efficient
-        int threshold = calculateIncrementalThreshold(dftSize, DFT_INCREMENTAL_THRESHOLD_RATIO);
-        if (newSamples.length > threshold || buffer.hasWrapped()) {
-            return recomputeDFT();
-        }
-        
-        // If no new samples, return existing spectrum
-        if (newSamples.length == 0) {
-            return getSpectrum();
-        }
-        
-        // If spectrum hasn't been computed yet, compute it first
-        if (spectrumDirty) {
-            return recomputeDFT();
-        }
-        
-        spectrumLock.writeLock().lock();
-        try {
-            // Get the current buffer data
-            double[] bufferData = buffer.toArray();
-            
-            // For each new sample, update using sliding DFT
-            for (int sampleIdx = 0; sampleIdx < newSamples.length; sampleIdx++) {
-                // Calculate which old sample is being removed from the buffer
-                RemovedSampleInfo removed = calculateRemovedSample(bufferData, sampleIdx, newSamples.length);
-                
-                // The new sample being added
-                double newSample = newSamples[sampleIdx];
-                
-                // Apply window if enabled
-                if (useWindow && window != null) {
-                    // Calculate position of the new sample in the circular buffer
-                    int newIdx = calculateNewSampleIndex(sampleIdx, newSamples.length);
-                    newSample *= window[newIdx];
-                    
-                    // Apply window to removed sample if buffer was full
-                    if (buffer.size() >= dftSize && removed.isValid) {
-                        removed.value *= window[removed.index];
-                    }
-                }
-                
-                // Update each frequency bin using sliding DFT
-                updateSlidingDFTCoefficients(dftCoefficients, twiddleFactors, 
-                                           removed.value, newSample, dftSize);
-            }
-            
-            // Convert back to interleaved format
-            for (int k = 0; k < dftSize; k++) {
-                spectrum[2 * k] = dftCoefficients[k].getReal();
-                spectrum[2 * k + 1] = dftCoefficients[k].getImag();
-            }
-            
-            spectrumDirty = false;
-        } finally {
-            spectrumLock.writeLock().unlock();
-        }
-        
-        return spectrum;
-        */
     }
     
     /**
