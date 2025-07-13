@@ -11,6 +11,7 @@ import jwave.transforms.FastWaveletTransform;
 import jwave.transforms.wavelets.Wavelet;
 import jwave.exceptions.JWaveException;
 import java.util.Arrays;
+import java.util.Objects;
 
 /**
  * Streaming implementation of the Fast Wavelet Transform (FWT).
