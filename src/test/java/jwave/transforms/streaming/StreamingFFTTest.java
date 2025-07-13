@@ -119,18 +119,25 @@ public class StreamingFFTTest {
         fft.update(signal);
         double[] spectrumUnwindowed = fft.getMagnitudeSpectrum();
         
-        // Find peak magnitude in both spectra
+        // Find peak magnitude in each spectrum independently
         double maxWindowed = 0.0;
         double maxUnwindowed = 0.0;
-        int peakBin = 0;
+        int peakBinWindowed = 0;
+        int peakBinUnwindowed = 0;
         
-        for (int i = 0; i < spectrumWindowed.length; i++) {
+        // Find peak in unwindowed spectrum
+        for (int i = 0; i < spectrumUnwindowed.length; i++) {
             if (spectrumUnwindowed[i] > maxUnwindowed) {
                 maxUnwindowed = spectrumUnwindowed[i];
-                peakBin = i;
+                peakBinUnwindowed = i;
             }
+        }
+        
+        // Find peak in windowed spectrum
+        for (int i = 0; i < spectrumWindowed.length; i++) {
             if (spectrumWindowed[i] > maxWindowed) {
                 maxWindowed = spectrumWindowed[i];
+                peakBinWindowed = i;
             }
         }
         
@@ -138,10 +145,14 @@ public class StreamingFFTTest {
         double leakageWindowed = 0.0;
         double leakageUnwindowed = 0.0;
         
-        // Check bins around the peak (but not the peak itself)
+        // Check bins around each spectrum's respective peak
         for (int i = 0; i < spectrumWindowed.length; i++) {
-            if (Math.abs(i - peakBin) > 2) { // Skip peak and immediate neighbors
+            // Skip peak and immediate neighbors for windowed spectrum
+            if (Math.abs(i - peakBinWindowed) > 2) {
                 leakageWindowed += spectrumWindowed[i];
+            }
+            // Skip peak and immediate neighbors for unwindowed spectrum
+            if (Math.abs(i - peakBinUnwindowed) > 2) {
                 leakageUnwindowed += spectrumUnwindowed[i];
             }
         }

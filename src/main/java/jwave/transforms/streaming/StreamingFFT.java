@@ -166,11 +166,15 @@ public class StreamingFFT extends AbstractStreamingTransform<double[]> {
     
     /**
      * Apply window to signal if windowing is enabled.
+     * 
+     * @param signal The input signal
+     * @return The windowed signal if windowing is enabled, otherwise the original signal
      */
     private double[] applyWindow(double[] signal) {
         if (!useWindow || window == null) {
-            // Always return a copy to avoid modifying the original
-            return Arrays.copyOf(signal, signal.length);
+            // No windowing needed, return original array
+            // This is safe because FFT.forward() doesn't modify its input
+            return signal;
         }
         
         double[] windowed = new double[signal.length];
@@ -273,34 +277,28 @@ public class StreamingFFT extends AbstractStreamingTransform<double[]> {
             
             // For each new sample, update using sliding DFT
             for (int sampleIdx = 0; sampleIdx < newSamples.length; sampleIdx++) {
-                // Determine which sample was removed (oldest)
-                int removedIdx = (buffer.size() - newSamples.length + sampleIdx) % fftSize;
-                double removedSample = 0.0; // Default for first fill
+                // Calculate which old sample is being removed from the buffer
+                RemovedSampleInfo removed = calculateRemovedSample(bufferData, sampleIdx, newSamples.length);
                 
-                if (buffer.size() >= fftSize) {
-                    // Buffer is full, so we're removing an old sample
-                    // The oldest sample index when buffer has wrapped is at writeIndex position
-                    int writeIdx = buffer.size() % fftSize; // Current write position
-                    removedIdx = (writeIdx - newSamples.length + sampleIdx + fftSize) % fftSize;
-                    removedSample = bufferData[removedIdx];
-                }
-                
-                // The new sample
+                // The new sample being added
                 double newSample = newSamples[sampleIdx];
                 
                 // Apply window if enabled
                 if (useWindow && window != null) {
-                    int newIdx = (buffer.size() - newSamples.length + sampleIdx) % fftSize;
+                    // Calculate position of the new sample in the circular buffer
+                    int newIdx = calculateNewSampleIndex(sampleIdx, newSamples.length);
                     newSample *= window[newIdx];
-                    if (buffer.size() >= fftSize) {
-                        removedSample *= window[removedIdx];
+                    
+                    // Apply window to removed sample if buffer was full
+                    if (buffer.size() >= fftSize && removed.isValid) {
+                        removed.value *= window[removed.index];
                     }
                 }
                 
                 // Update each frequency bin using sliding DFT
                 for (int k = 0; k < fftSize; k++) {
                     // Subtract oldest sample contribution
-                    Complex oldContribution = new Complex(removedSample, 0);
+                    Complex oldContribution = new Complex(removed.value, 0);
                     
                     // Add newest sample contribution
                     Complex newContribution = new Complex(newSample, 0);
@@ -325,6 +323,66 @@ public class StreamingFFT extends AbstractStreamingTransform<double[]> {
         }
         
         return spectrum;
+    }
+    
+    /**
+     * Helper class to encapsulate information about a removed sample.
+     */
+    private static class RemovedSampleInfo {
+        final int index;
+        double value;
+        final boolean isValid;
+        
+        RemovedSampleInfo(int index, double value, boolean isValid) {
+            this.index = index;
+            this.value = value;
+            this.isValid = isValid;
+        }
+    }
+    
+    /**
+     * Calculate which sample is being removed when adding new samples.
+     * 
+     * When the circular buffer is full and we add new samples, old samples
+     * are overwritten. This method calculates which sample is being removed
+     * for a given position in the new samples array.
+     * 
+     * @param bufferData Current buffer contents
+     * @param sampleIdx Index within the new samples being added (0-based)
+     * @param numNewSamples Total number of new samples being added
+     * @return Information about the removed sample
+     */
+    private RemovedSampleInfo calculateRemovedSample(double[] bufferData, int sampleIdx, int numNewSamples) {
+        if (buffer.size() < fftSize) {
+            // Buffer not full yet, no sample is being removed
+            return new RemovedSampleInfo(0, 0.0, false);
+        }
+        
+        // Buffer is full, calculate which sample is being overwritten
+        // The write position in the circular buffer moves forward with each new sample
+        // We need to find which old sample corresponds to the current new sample position
+        
+        // Current write position in the circular buffer (before adding new samples)
+        int currentWritePos = buffer.size() % fftSize;
+        
+        // The position where this specific new sample will be written
+        // We go back by (numNewSamples - sampleIdx) positions from current write position
+        int removedIdx = (currentWritePos - numNewSamples + sampleIdx + fftSize) % fftSize;
+        
+        return new RemovedSampleInfo(removedIdx, bufferData[removedIdx], true);
+    }
+    
+    /**
+     * Calculate the buffer index where a new sample will be placed.
+     * 
+     * @param sampleIdx Index within the new samples being added (0-based)
+     * @param numNewSamples Total number of new samples being added
+     * @return Buffer index where the new sample will be placed
+     */
+    private int calculateNewSampleIndex(int sampleIdx, int numNewSamples) {
+        // Position in buffer where this new sample will be placed
+        // This accounts for the circular nature of the buffer
+        return (buffer.size() - numNewSamples + sampleIdx) % fftSize;
     }
     
     /**
@@ -414,16 +472,50 @@ public class StreamingFFT extends AbstractStreamingTransform<double[]> {
     
     @Override
     protected double[] getCachedCoefficients() {
-        // Check if we need to recompute due to LAZY strategy
+        // First check with read lock (fast path for non-dirty case)
         spectrumLock.readLock().lock();
-        boolean needsCompute = spectrumDirty;
-        spectrumLock.readLock().unlock();
-        
-        if (needsCompute) {
-            return recomputeFFT();
+        try {
+            if (!spectrumDirty) {
+                // Fast path - spectrum is clean, return it
+                return spectrum;
+            }
+        } finally {
+            spectrumLock.readLock().unlock();
         }
         
-        return getSpectrum();
+        // Spectrum is dirty, need to recompute
+        // Use write lock to ensure only one thread recomputes
+        spectrumLock.writeLock().lock();
+        try {
+            // Double-check pattern - another thread may have already recomputed
+            if (spectrumDirty) {
+                // We hold the write lock, safe to recompute
+                double[] bufferData = buffer.toArray();
+                double[] processedData = applyWindow(bufferData);
+                
+                double[] newSpectrum;
+                try {
+                    newSpectrum = fft.forward(processedData);
+                } catch (jwave.exceptions.JWaveException e) {
+                    throw new RuntimeException("FFT computation failed", e);
+                }
+                
+                spectrum = newSpectrum;
+                spectrumDirty = false;
+                
+                // Update DFT coefficients for future sliding updates
+                for (int k = 0; k < fftSize; k++) {
+                    dftCoefficients[k] = new Complex(
+                        spectrum[2 * k],
+                        spectrum[2 * k + 1]
+                    );
+                }
+            }
+            
+            return spectrum;
+        } finally {
+            spectrumLock.writeLock().unlock();
+        }
     }
     
     @Override
