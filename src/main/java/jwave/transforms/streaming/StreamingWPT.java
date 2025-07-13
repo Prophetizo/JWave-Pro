@@ -17,20 +17,25 @@ import java.util.Objects;
  * Streaming implementation of the Wavelet Packet Transform (WPT).
  * 
  * This class provides streaming capabilities for Wavelet Packet Decomposition
- * by maintaining a power-of-2 sized buffer and performing incremental updates
- * as new samples arrive.
+ * by maintaining a power-of-2 sized buffer and performing updates as new 
+ * samples arrive.
  * 
  * Key features:
  * - Full binary tree decomposition (both approximation and detail at each level)
  * - Maintains power-of-2 buffer requirement for WPT
- * - Supports incremental packet tree updates
- * - Optimized for real-time signal processing
  * - Multi-level decomposition with packet-based structure
+ * - Packet energy analysis and time-based path traversal
+ * - Optimized for real-time signal processing
  * 
  * The WPT differs from FWT by decomposing both approximation and detail
  * coefficients at each level, creating a complete binary tree of coefficients.
  * This provides a richer time-frequency representation but at higher
  * computational cost.
+ * 
+ * IMPORTANT: The INCREMENTAL update strategy currently falls back to full
+ * recomputation due to the complexity of updating the entire packet tree.
+ * This means INCREMENTAL and FULL strategies have identical performance.
+ * True incremental updates for WPT remain a future optimization.
  * 
  * @author Prophetizo
  * @date 2025-07-13
@@ -185,15 +190,26 @@ public class StreamingWPT extends AbstractStreamingTransform<double[]> {
     /**
      * Perform incremental WPT update for new samples.
      * 
-     * For WPT, incremental updates are more complex than FWT because:
+     * IMPORTANT: Due to the full binary tree structure of WPT where every node
+     * is decomposed (not just approximations), implementing truly incremental
+     * updates is extremely complex with minimal performance benefit. Currently,
+     * this method falls back to full recomputation, making INCREMENTAL behave
+     * the same as FULL strategy.
+     * 
+     * For WPT, incremental updates face these challenges:
      * 1. We need to update the entire packet tree, not just approximation branch
      * 2. Each packet at level L affects two packets at level L+1
      * 3. The full binary tree structure means O(N) coefficients to update
+     * 4. Boundary effects propagate through all decomposition levels
      * 
-     * We implement a targeted update strategy that:
-     * - Identifies which packets are affected by new samples
-     * - Recomputes only the necessary packets at each level
-     * - Maintains the complete packet tree structure
+     * Future optimization opportunities:
+     * - Track which packets are affected by new samples
+     * - Use boundary wavelets for localized updates
+     * - Implement packet-wise lazy evaluation
+     * - Cache intermediate packet decompositions
+     * 
+     * @param newSamples The new samples added to the buffer
+     * @return Updated wavelet packet coefficients
      */
     private double[] performIncrementalUpdate(double[] newSamples) {
         // First time or buffer wrapped - need full computation
@@ -203,17 +219,8 @@ public class StreamingWPT extends AbstractStreamingTransform<double[]> {
         
         // If we have new samples, the buffer has changed
         if (newSamples.length > 0) {
-            // For WPT, due to its full binary tree structure where every node
-            // is decomposed (not just approximations), implementing a truly
-            // incremental update is very complex. The computational savings
-            // would be minimal since we need to update most of the tree anyway.
-            // 
-            // Future optimization opportunities:
-            // 1. Track which packets are affected by new samples
-            // 2. Use boundary wavelets for localized updates
-            // 3. Implement packet-wise lazy evaluation
-            // 4. Cache intermediate packet decompositions
-            
+            // TODO: Implement true incremental WPT update
+            // Currently falls back to full recomputation
             return recomputeCoefficients();
         }
         
@@ -307,24 +314,22 @@ public class StreamingWPT extends AbstractStreamingTransform<double[]> {
     }
     
     /**
-     * Get the packet tree path for a specific time-frequency location.
+     * Get the packet tree path for a specific time index.
      * This returns the sequence of packets from root to leaf that
-     * contain the specified time-frequency point.
+     * contain the specified time point.
+     * 
+     * In WPT, each decomposition creates a binary tree where:
+     * - At each level, a packet is split into two sub-packets
+     * - The path through the tree is determined by the time location
+     * - Each packet covers a specific time interval
      * 
      * @param timeIndex The time index (0 to effectiveBufferSize - 1)
-     * @param freqIndex The frequency index (0 to effectiveBufferSize/2 - 1)
-     * @return Array of packets from root to leaf
+     * @return Array of packets from root to leaf, one per level
      */
-    public double[][] getPacketPath(int timeIndex, int freqIndex) {
+    public double[][] getPacketPath(int timeIndex) {
         if (timeIndex < 0 || timeIndex >= effectiveBufferSize) {
             throw new IllegalArgumentException(
                 "Time index must be between 0 and " + (effectiveBufferSize - 1)
-            );
-        }
-        
-        if (freqIndex < 0 || freqIndex >= effectiveBufferSize / 2) {
-            throw new IllegalArgumentException(
-                "Frequency index must be between 0 and " + (effectiveBufferSize / 2 - 1)
             );
         }
         
@@ -333,21 +338,18 @@ public class StreamingWPT extends AbstractStreamingTransform<double[]> {
         // Start at root (level 0)
         path[0] = getPacket(0, 0);
         
-        // Traverse down the tree based on time-frequency location
-        int currentTimeIndex = timeIndex;
-        int currentFreqIndex = freqIndex;
+        // Traverse down the tree based on time location
+        int currentIndex = timeIndex;
         
         for (int level = 1; level <= maxLevel; level++) {
-            // Determine which packet at this level contains the point
-            int packetsAtLevel = packetCounts[level];
+            // At each level, determine which packet contains this time index
             int packetSize = packetSizes[level];
+            int packetIndex = currentIndex / packetSize;
             
-            // Calculate packet index based on position
-            int packetIndex = currentTimeIndex / packetSize;
             path[level] = getPacket(level, packetIndex);
             
-            // Update indices for next level
-            currentTimeIndex %= packetSize;
+            // Update index relative to the current packet
+            currentIndex %= packetSize;
         }
         
         return path;

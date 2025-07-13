@@ -451,8 +451,8 @@ public class StreamingWPTTest {
         Arrays.fill(signal, 1.0);
         wpt.update(signal);
         
-        // Get packet path for a specific time-frequency location
-        double[][] path = wpt.getPacketPath(8, 4);
+        // Get packet path for a specific time location
+        double[][] path = wpt.getPacketPath(8);
         
         // Should have maxLevel + 1 packets in the path
         assertEquals(5, path.length);
@@ -476,21 +476,7 @@ public class StreamingWPTTest {
         wpt.update(new double[16]);
         
         // Time index out of bounds
-        wpt.getPacketPath(16, 4);
-    }
-    
-    @Test(expected = IllegalArgumentException.class)
-    public void testPacketPathInvalidFreqIndex() {
-        StreamingTransformConfig config = StreamingTransformConfig.builder()
-            .bufferSize(16)
-            .maxLevel(3)
-            .build();
-        
-        StreamingWPT wpt = new StreamingWPT(new Haar1(), config);
-        wpt.update(new double[16]);
-        
-        // Frequency index out of bounds
-        wpt.getPacketPath(8, 8);
+        wpt.getPacketPath(16);
     }
     
     @Test

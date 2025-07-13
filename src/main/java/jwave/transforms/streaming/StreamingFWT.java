@@ -18,16 +18,19 @@ import java.util.Objects;
  * 
  * This class provides streaming capabilities for the standard Discrete Wavelet
  * Transform (DWT) by maintaining a power-of-2 sized buffer and performing
- * incremental updates as new samples arrive.
+ * updates as new samples arrive.
  * 
  * Key features:
  * - Maintains power-of-2 buffer requirement for FWT
- * - Supports incremental coefficient updates
- * - Optimized for real-time signal processing
  * - Multi-level decomposition support
+ * - Optimized for real-time signal processing
  * 
  * The FWT decomposes a signal into approximation and detail coefficients
  * at multiple scales, with each level halving the number of coefficients.
+ * 
+ * IMPORTANT: The INCREMENTAL update strategy currently falls back to full
+ * recomputation. This means INCREMENTAL and FULL strategies have identical
+ * performance. True incremental updates for FWT remain a future optimization.
  * 
  * @author Prophetizo
  * @date 2025-07-12
@@ -162,15 +165,22 @@ public class StreamingFWT extends AbstractStreamingTransform<double[]> {
     /**
      * Perform incremental FWT update for new samples.
      * 
+     * IMPORTANT: Currently, this method falls back to full recomputation,
+     * making INCREMENTAL behave the same as FULL strategy. True incremental
+     * updates for FWT remain a future optimization.
+     * 
      * For FWT, incremental updates are challenging because:
      * 1. The transform is recursive with each level depending on the previous
      * 2. Changes propagate through all decomposition levels
      * 3. The dyadic structure means updates affect multiple coefficients
      * 
-     * We implement a targeted update strategy that:
-     * - Identifies which coefficients are affected by new samples
-     * - Recomputes only the necessary portions at each level
-     * - Maintains the hierarchical dependencies between levels
+     * Future optimization opportunities:
+     * - Lifting scheme implementation for in-place updates
+     * - Boundary wavelets for localized updates
+     * - Lazy evaluation of unaffected coefficient blocks
+     * 
+     * @param newSamples The new samples added to the buffer
+     * @return Updated wavelet coefficients
      */
     private double[] performIncrementalUpdate(double[] newSamples) {
         // First time or buffer wrapped - need full computation
@@ -180,15 +190,8 @@ public class StreamingFWT extends AbstractStreamingTransform<double[]> {
         
         // If we have new samples, the buffer has changed
         if (newSamples.length > 0) {
-            // For FWT, due to its recursive nature and downsampling at each level,
-            // implementing a truly incremental update is complex. For now, we'll
-            // fall back to full recomputation but with optimizations.
-            // 
-            // Future optimization opportunities:
-            // 1. Lifting scheme implementation for in-place updates
-            // 2. Boundary wavelets for localized updates
-            // 3. Lazy evaluation of unaffected coefficient blocks
-            
+            // TODO: Implement true incremental FWT update
+            // Currently falls back to full recomputation
             return recomputeCoefficients();
         }
         
