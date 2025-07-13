@@ -180,7 +180,7 @@ public class StreamingIncrementalPerformanceTest {
         System.out.printf("Single sample updates (average of %d updates):\n", SINGLE_SAMPLE_UPDATES);
         System.out.printf("  FULL:        %.3f ms per update\n", fullAvgUpdate);
         System.out.printf("  INCREMENTAL: %.3f ms per update (same as FULL)\n", incAvgUpdate);
-        System.out.printf("  Speedup:     1.00x (no improvement - falls back to FULL)\n");
+        System.out.println("  Speedup:     1.00x (no improvement - falls back to FULL)");
         System.out.println();
     }
     
@@ -237,7 +237,7 @@ public class StreamingIncrementalPerformanceTest {
         System.out.printf("Single sample updates (average of %d updates):\n", SINGLE_SAMPLE_UPDATES);
         System.out.printf("  FULL:        %.3f ms per update\n", fullAvgUpdate);
         System.out.printf("  INCREMENTAL: %.3f ms per update (same as FULL)\n", incAvgUpdate);
-        System.out.printf("  Speedup:     1.00x (no improvement - falls back to FULL)\n");
+        System.out.println("  Speedup:     1.00x (no improvement - falls back to FULL)");
         System.out.println();
     }
     

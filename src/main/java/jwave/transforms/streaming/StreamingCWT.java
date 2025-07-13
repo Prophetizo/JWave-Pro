@@ -249,8 +249,8 @@ public class StreamingCWT extends AbstractStreamingTransform<CWTResult> {
      * @return Updated CWT result
      */
     private CWTResult performIncrementalUpdate(double[] newSamples) {
-        // First time or buffer wrapped - need full computation
-        if (coefficients == null || buffer.hasWrapped()) {
+        // Check if we should fall back to full computation
+        if (shouldFallbackToFullComputation(newSamples)) {
             return recomputeCoefficients();
         }
         
@@ -259,79 +259,167 @@ public class StreamingCWT extends AbstractStreamingTransform<CWTResult> {
             return createResult();
         }
         
-        // For large updates, full recomputation might be more efficient
-        if (newSamples.length > bufferSize / 4) {
-            return recomputeCoefficients();
+        // Perform selective coefficient updates
+        updateAffectedCoefficients(newSamples);
+        
+        return createResult();
+    }
+    
+    /**
+     * Determine if we should fall back to full computation instead of incremental.
+     * 
+     * @param newSamples The new samples added
+     * @return true if full computation is needed
+     */
+    private boolean shouldFallbackToFullComputation(double[] newSamples) {
+        // First time or buffer wrapped - need full computation
+        if (coefficients == null || buffer.hasWrapped()) {
+            return true;
         }
         
-        // Get the current buffer data
+        // For large updates, full recomputation might be more efficient
+        if (newSamples.length > bufferSize / 4) {
+            return true;
+        }
+        
+        return false;
+    }
+    
+    /**
+     * Update only the coefficients affected by new samples.
+     * 
+     * @param newSamples The new samples added
+     */
+    private void updateAffectedCoefficients(double[] newSamples) {
         double[] bufferData = buffer.toArray();
-        
-        // Get wavelet support bounds
         double[] support = wavelet.getEffectiveSupport();
-        
-        // Track how many coefficients we update for performance monitoring
-        int totalUpdated = 0;
-        int totalCoefficients = numScales * bufferSize;
+        int newSampleStartIdx = bufferSize - newSamples.length;
         
         coeffLock.writeLock().lock();
         try {
-            // For small numbers of new samples (like 1), we can optimize by only updating
-            // coefficients whose support windows actually overlap with the new data
-            
-            // Since the buffer hasn't wrapped, new samples are at the end
-            int newSampleStartIdx = bufferSize - newSamples.length;
-            
-            // For each scale, determine which coefficients need updating
             for (int scaleIdx = 0; scaleIdx < numScales; scaleIdx++) {
                 double scale = scales[scaleIdx];
+                int supportRadius = calculateSupportRadius(scale, support);
                 
-                // Calculate the effective support radius at this scale
-                int supportRadius = (int) Math.ceil(Math.max(Math.abs(support[0]), Math.abs(support[1])) * scale * samplingRate);
-                
-                // Skip scales where the support is so large that we'd update most coefficients anyway
-                if (supportRadius > bufferSize / 3) {
-                    // For large support, just update all coefficients at this scale
-                    for (int timeIdx = 0; timeIdx < bufferSize; timeIdx++) {
-                        coefficients[scaleIdx][timeIdx] = computeCoefficientDirect(
-                            bufferData, timeIdx, scale, samplingRate
-                        );
-                        totalUpdated++;
-                    }
-                    continue;
-                }
-                
-                // For smaller support, selectively update only affected coefficients
-                
-                // Update coefficients whose support windows overlap with new samples
-                int startUpdateIdx = Math.max(0, newSampleStartIdx - supportRadius);
-                int endUpdateIdx = bufferSize - 1;
-                
-                for (int timeIdx = startUpdateIdx; timeIdx <= endUpdateIdx; timeIdx++) {
-                    coefficients[scaleIdx][timeIdx] = computeCoefficientDirect(
-                        bufferData, timeIdx, scale, samplingRate
-                    );
-                    totalUpdated++;
-                }
-                
-                // Handle edge effects: coefficients at the beginning whose support wraps around
-                if (supportRadius > newSampleStartIdx) {
-                    int edgeUpdateCount = Math.min(supportRadius - newSampleStartIdx, startUpdateIdx);
-                    for (int timeIdx = 0; timeIdx < edgeUpdateCount; timeIdx++) {
-                        coefficients[scaleIdx][timeIdx] = computeCoefficientDirect(
-                            bufferData, timeIdx, scale, samplingRate
-                        );
-                        totalUpdated++;
-                    }
-                }
+                // Update coefficients at this scale
+                updateScaleCoefficients(scaleIdx, scale, supportRadius, 
+                                      newSampleStartIdx, bufferData, support);
             }
             
             coefficientsDirty = false;
         } finally {
             coeffLock.writeLock().unlock();
         }
+    }
+    
+    /**
+     * Calculate the effective support radius for a given scale.
+     * 
+     * @param scale The scale value
+     * @param support The wavelet support bounds
+     * @return The support radius in samples
+     */
+    private int calculateSupportRadius(double scale, double[] support) {
+        return (int) Math.ceil(Math.max(Math.abs(support[0]), Math.abs(support[1])) 
+                              * scale * samplingRate);
+    }
+    
+    /**
+     * Update coefficients for a single scale.
+     * 
+     * @param scaleIdx Scale index
+     * @param scale Scale value
+     * @param supportRadius Support radius for this scale
+     * @param newSampleStartIdx Starting index of new samples
+     * @param bufferData Current buffer data
+     * @param support Pre-computed wavelet support bounds
+     */
+    private void updateScaleCoefficients(int scaleIdx, double scale, int supportRadius,
+                                       int newSampleStartIdx, double[] bufferData, 
+                                       double[] support) {
+        // For very large support, update all coefficients at this scale
+        if (supportRadius > bufferSize / 3) {
+            updateAllCoefficientsAtScale(scaleIdx, scale, bufferData, support);
+            return;
+        }
         
-        return createResult();
+        // Update main range of affected coefficients
+        updateMainCoefficientRange(scaleIdx, scale, supportRadius, 
+                                 newSampleStartIdx, bufferData, support);
+        
+        // Handle edge effects for wraparound
+        updateEdgeCoefficients(scaleIdx, scale, supportRadius, 
+                             newSampleStartIdx, bufferData, support);
+    }
+    
+    /**
+     * Update all coefficients at a given scale.
+     * 
+     * @param scaleIdx Scale index
+     * @param scale Scale value
+     * @param bufferData Current buffer data
+     * @param support Pre-computed wavelet support bounds
+     */
+    private void updateAllCoefficientsAtScale(int scaleIdx, double scale, 
+                                            double[] bufferData, double[] support) {
+        for (int timeIdx = 0; timeIdx < bufferSize; timeIdx++) {
+            coefficients[scaleIdx][timeIdx] = computeCoefficientDirect(
+                bufferData, timeIdx, scale, samplingRate, support
+            );
+        }
+    }
+    
+    /**
+     * Update the main range of coefficients affected by new samples.
+     * 
+     * @param scaleIdx Scale index
+     * @param scale Scale value
+     * @param supportRadius Support radius for this scale
+     * @param newSampleStartIdx Starting index of new samples
+     * @param bufferData Current buffer data
+     * @param support Pre-computed wavelet support bounds
+     */
+    private void updateMainCoefficientRange(int scaleIdx, double scale, int supportRadius,
+                                          int newSampleStartIdx, double[] bufferData,
+                                          double[] support) {
+        int startUpdateIdx = Math.max(0, newSampleStartIdx - supportRadius);
+        int endUpdateIdx = bufferSize - 1;
+        
+        for (int timeIdx = startUpdateIdx; timeIdx <= endUpdateIdx; timeIdx++) {
+            coefficients[scaleIdx][timeIdx] = computeCoefficientDirect(
+                bufferData, timeIdx, scale, samplingRate, support
+            );
+        }
+    }
+    
+    /**
+     * Update edge coefficients that wrap around due to circular buffer.
+     * 
+     * @param scaleIdx Scale index
+     * @param scale Scale value
+     * @param supportRadius Support radius for this scale
+     * @param newSampleStartIdx Starting index of new samples
+     * @param bufferData Current buffer data
+     * @param support Pre-computed wavelet support bounds
+     */
+    private void updateEdgeCoefficients(int scaleIdx, double scale, int supportRadius,
+                                      int newSampleStartIdx, double[] bufferData,
+                                      double[] support) {
+        // Handle coefficients at the beginning whose support extends to new samples
+        if (supportRadius > newSampleStartIdx) {
+            int startUpdateIdx = Math.max(0, newSampleStartIdx - supportRadius);
+            int edgeUpdateCount = supportRadius - newSampleStartIdx;
+            
+            for (int timeIdx = 0; timeIdx < edgeUpdateCount && timeIdx < bufferSize; timeIdx++) {
+                // Skip if already updated in main range
+                if (timeIdx >= startUpdateIdx) {
+                    break;
+                }
+                coefficients[scaleIdx][timeIdx] = computeCoefficientDirect(
+                    bufferData, timeIdx, scale, samplingRate, support
+                );
+            }
+        }
     }
     
     /**
@@ -342,14 +430,14 @@ public class StreamingCWT extends AbstractStreamingTransform<CWTResult> {
      * @param timeIdx Time index for the coefficient
      * @param scale Scale value
      * @param samplingRate Sampling rate
+     * @param support Pre-computed wavelet support bounds
      * @return Complex coefficient value
      */
-    private Complex computeCoefficientDirect(double[] signal, int timeIdx, double scale, double samplingRate) {
+    private Complex computeCoefficientDirect(double[] signal, int timeIdx, double scale, 
+                                           double samplingRate, double[] support) {
         Complex sum = new Complex(0, 0);
         double dt = 1.0 / samplingRate;
         
-        // Get effective support of the wavelet
-        double[] support = wavelet.getEffectiveSupport();
         int minIdx = Math.max(0, timeIdx + (int)(support[0] * scale * samplingRate));
         int maxIdx = Math.min(signal.length - 1, timeIdx + (int)(support[1] * scale * samplingRate));
         
