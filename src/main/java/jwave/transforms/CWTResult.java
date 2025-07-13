@@ -126,7 +126,8 @@ public class CWTResult {
         // This ensures unique angle representation in the half-open interval
         // Note: atan2 already returns values in [-π, π], so we only need to
         // handle the boundary case where angle might be exactly π
-        if (angle > Math.PI - 1e-10) {
+        final double EPSILON = 1e-10;
+        if (Math.abs(angle - Math.PI) < EPSILON) {
             phase[i][j] = -Math.PI;
         } else {
             phase[i][j] = angle;

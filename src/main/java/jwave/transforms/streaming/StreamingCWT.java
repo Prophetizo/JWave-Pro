@@ -507,18 +507,32 @@ public class StreamingCWT extends AbstractStreamingTransform<CWTResult> {
         coeffLock.readLock().lock();
         try {
             // Create deep copy of coefficients to prevent external modification
+            // Since Complex objects have setters, we must create defensive copies
             Complex[][] coeffCopy = new Complex[numScales][bufferSize];
             
-            // Copy existing coefficients and fill with zeros as needed
+            // Copy existing coefficients
             for (int i = 0; i < numScales; i++) {
-                for (int j = 0; j < bufferSize; j++) {
-                    // Check bounds to handle any size mismatches
-                    if (i < coefficients.length && j < coefficients[i].length && coefficients[i][j] != null) {
-                        coeffCopy[i][j] = new Complex(
-                            coefficients[i][j].getReal(),
-                            coefficients[i][j].getImag()
-                        );
-                    } else {
+                if (i < coefficients.length && coefficients[i] != null) {
+                    // Use System.arraycopy for the initial copy of references
+                    int copyLength = Math.min(bufferSize, coefficients[i].length);
+                    System.arraycopy(coefficients[i], 0, coeffCopy[i], 0, copyLength);
+                    
+                    // Now create defensive copies and handle nulls/padding
+                    for (int j = 0; j < bufferSize; j++) {
+                        if (j < copyLength && coeffCopy[i][j] != null) {
+                            // Create defensive copy since Complex is mutable
+                            coeffCopy[i][j] = new Complex(
+                                coeffCopy[i][j].getReal(),
+                                coeffCopy[i][j].getImag()
+                            );
+                        } else {
+                            // Fill with zero
+                            coeffCopy[i][j] = new Complex(0, 0);
+                        }
+                    }
+                } else {
+                    // Fill entire row with zeros
+                    for (int j = 0; j < bufferSize; j++) {
                         coeffCopy[i][j] = new Complex(0, 0);
                     }
                 }
