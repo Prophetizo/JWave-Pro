@@ -250,8 +250,7 @@ public class StreamingFWT extends AbstractStreamingTransform<double[]> {
         // - Approximation coefficients are at indices [0, N/2^L)
         // - Detail coefficients are at indices [N/2^L, N/2^(L-1))
         
-        int approxSize = effectiveBufferSize >> level;        // N/2^L
-        int detailSize = effectiveBufferSize >> (level - 1);  // N/2^(L-1)
+        int approxSize = effectiveBufferSize >> level;  // N/2^L
         
         // Approximation is always at the beginning
         double[] approximation = new double[approxSize];
