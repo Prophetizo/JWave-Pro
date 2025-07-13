@@ -53,9 +53,6 @@ public class StreamingFWT extends AbstractStreamingTransform<double[]> {
         
         this.wavelet = Objects.requireNonNull(wavelet, "Wavelet cannot be null");
         this.config = Objects.requireNonNull(config, "Configuration cannot be null");
-        
-        this.wavelet = wavelet;
-        this.config = config;
         this.fwt = (FastWaveletTransform) transform;
         
         // Initialize with config values

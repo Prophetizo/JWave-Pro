@@ -65,7 +65,7 @@ public class StreamingFWTTest {
         assertFalse(fwt.isPowerOfTwo());
     }
     
-    @Test(expected = IllegalArgumentException.class)
+    @Test(expected = NullPointerException.class)
     public void testNullWavelet() {
         StreamingTransformConfig config = StreamingTransformConfig.builder()
             .bufferSize(128)
@@ -74,7 +74,7 @@ public class StreamingFWTTest {
         new StreamingFWT(null, config);
     }
     
-    @Test(expected = IllegalArgumentException.class)
+    @Test(expected = NullPointerException.class)
     public void testNullConfig() {
         new StreamingFWT(new Haar1(), null);
     }
