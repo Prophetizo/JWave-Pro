@@ -383,13 +383,14 @@ public class StreamingDFTTest {
         // Phase at bin 10 should differ by π/2
         // Need to normalize the phase difference to handle wrapping
         double phaseDiff = sinPhase[10] - cosPhase[10];
+        
         // Normalize to [-π, π]
         while (phaseDiff > Math.PI) phaseDiff -= 2 * Math.PI;
         while (phaseDiff < -Math.PI) phaseDiff += 2 * Math.PI;
-        // Check if it's π/2 or -3π/2 (which are equivalent)
-        assertTrue("Phase difference should be π/2", 
-                  Math.abs(phaseDiff - Math.PI / 2) < 0.1 || 
-                  Math.abs(phaseDiff + 3 * Math.PI / 2) < 0.1);
+        
+        // Check if it's π/2 or -π/2 (which are both valid 90° phase shifts)
+        assertTrue("Phase difference should be ±π/2, got: " + phaseDiff, 
+                  Math.abs(Math.abs(phaseDiff) - Math.PI / 2) < 0.1);
     }
     
     @Test
