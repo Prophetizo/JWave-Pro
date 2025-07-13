@@ -327,12 +327,6 @@ public class StreamingCWT extends AbstractStreamingTransform<CWTResult> {
             }
             
             coefficientsDirty = false;
-            
-            // If we're updating more than 70% of coefficients, it might be more efficient
-            // to just do a full recomputation next time
-            if (totalUpdated > totalCoefficients * 0.7) {
-                // Consider switching to full recomputation for future updates
-            }
         } finally {
             coeffLock.writeLock().unlock();
         }
