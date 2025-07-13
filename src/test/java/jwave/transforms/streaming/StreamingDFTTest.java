@@ -166,23 +166,31 @@ public class StreamingDFTTest {
         
         StreamingDFT dft = new StreamingDFT(config);
         
-        // Fill buffer with zeros
-        dft.update(new double[50]);
+        // Fill buffer with a DC signal
+        double[] initialSignal = new double[50];
+        Arrays.fill(initialSignal, 1.0);
+        dft.update(initialSignal);
         
-        // Add single non-zero sample
-        dft.update(new double[]{1.0});
+        // Get initial spectrum
+        double[] initialMagnitude = dft.getMagnitudeSpectrum();
+        
+        // Add a single sample that changes the signal
+        dft.update(new double[]{2.0});
         
         double[] magnitude = dft.getMagnitudeSpectrum();
         
-        // Verify spectrum was updated
-        boolean hasNonZero = false;
-        for (double mag : magnitude) {
-            if (mag > DELTA) {
-                hasNonZero = true;
+        // Verify spectrum changed
+        boolean spectrumChanged = false;
+        for (int i = 0; i < magnitude.length; i++) {
+            if (Math.abs(magnitude[i] - initialMagnitude[i]) > DELTA) {
+                spectrumChanged = true;
                 break;
             }
         }
-        assertTrue("Spectrum should have non-zero magnitudes after update", hasNonZero);
+        assertTrue("Spectrum should change after incremental update", spectrumChanged);
+        
+        // Verify DC component is significant
+        assertTrue("DC component should be significant", magnitude[0] > 40.0);
     }
     
     @Test
@@ -373,8 +381,15 @@ public class StreamingDFTTest {
         double[] sinPhase = dft.getPhaseSpectrum();
         
         // Phase at bin 10 should differ by π/2
-        double phaseDiff = Math.abs(sinPhase[10] - cosPhase[10]);
-        assertEquals("Phase difference should be π/2", Math.PI / 2, phaseDiff, 0.1);
+        // Need to normalize the phase difference to handle wrapping
+        double phaseDiff = sinPhase[10] - cosPhase[10];
+        // Normalize to [-π, π]
+        while (phaseDiff > Math.PI) phaseDiff -= 2 * Math.PI;
+        while (phaseDiff < -Math.PI) phaseDiff += 2 * Math.PI;
+        // Check if it's π/2 or -3π/2 (which are equivalent)
+        assertTrue("Phase difference should be π/2", 
+                  Math.abs(phaseDiff - Math.PI / 2) < 0.1 || 
+                  Math.abs(phaseDiff + 3 * Math.PI / 2) < 0.1);
     }
     
     @Test

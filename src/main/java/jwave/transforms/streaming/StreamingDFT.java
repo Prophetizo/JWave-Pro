@@ -132,6 +132,7 @@ public class StreamingDFT extends AbstractStreamingTransform<double[]> {
         
         // Initialize spectrum storage (complex interleaved format)
         spectrum = new double[dftSize * 2];
+        spectrumDirty = true;  // Mark as dirty so it gets computed on first access
         
         // Initialize sliding DFT state
         dftCoefficients = new Complex[dftSize];
@@ -220,14 +221,45 @@ public class StreamingDFT extends AbstractStreamingTransform<double[]> {
     
     /**
      * Recompute full DFT from current buffer state.
+     * This method handles proper locking and delegates to the actual computation.
      */
     private double[] recomputeDFT() {
+        spectrumLock.writeLock().lock();
+        try {
+            // Double-check pattern - another thread may have already recomputed
+            if (!spectrumDirty) {
+                // Another thread already recomputed, just return the spectrum
+                return spectrum;
+            }
+            
+            // Perform the actual DFT computation
+            performDFTComputation();
+            
+            return spectrum;
+        } finally {
+            spectrumLock.writeLock().unlock();
+        }
+    }
+    
+    /**
+     * Perform the actual DFT computation and update internal state.
+     * This method assumes the caller holds the write lock.
+     */
+    private void performDFTComputation() {
         double[] bufferData = buffer.toArray();
         
-        // Apply window if enabled
-        double[] processedData = applyWindow(bufferData);
+        // Ensure buffer is full size for DFT
+        double[] fullSizeData;
+        if (bufferData.length < dftSize) {
+            // Pad with zeros if buffer is not full
+            fullSizeData = new double[dftSize];
+            System.arraycopy(bufferData, 0, fullSizeData, 0, bufferData.length);
+        } else {
+            fullSizeData = bufferData;
+        }
         
-        // Compute DFT
+        double[] processedData = applyWindow(fullSizeData);
+        
         double[] newSpectrum;
         try {
             newSpectrum = dft.forward(processedData);
@@ -235,24 +267,16 @@ public class StreamingDFT extends AbstractStreamingTransform<double[]> {
             throw new RuntimeException("DFT computation failed", e);
         }
         
-        // Update internal state
-        spectrumLock.writeLock().lock();
-        try {
-            spectrum = newSpectrum;
-            spectrumDirty = false;
-            
-            // Update DFT coefficients for future sliding updates
-            for (int k = 0; k < dftSize; k++) {
-                dftCoefficients[k] = new Complex(
-                    spectrum[2 * k],
-                    spectrum[2 * k + 1]
-                );
-            }
-        } finally {
-            spectrumLock.writeLock().unlock();
-        }
+        spectrum = newSpectrum;
+        spectrumDirty = false;
         
-        return spectrum;
+        // Update DFT coefficients for future sliding updates
+        for (int k = 0; k < dftSize; k++) {
+            dftCoefficients[k] = new Complex(
+                spectrum[2 * k],
+                spectrum[2 * k + 1]
+            );
+        }
     }
     
     /**
@@ -269,13 +293,18 @@ public class StreamingDFT extends AbstractStreamingTransform<double[]> {
     private double[] performIncrementalUpdate(double[] newSamples) {
         // For large updates, full DFT might be more efficient
         int incrementalUpdateThreshold = (int)(dftSize * INCREMENTAL_UPDATE_THRESHOLD_RATIO);
-        if (newSamples.length > incrementalUpdateThreshold || buffer.hasWrapped()) {
+        if (newSamples.length > incrementalUpdateThreshold) {
             return recomputeDFT();
         }
         
         // If no new samples, return existing spectrum
         if (newSamples.length == 0) {
             return getSpectrum();
+        }
+        
+        // If spectrum hasn't been computed yet, compute it first
+        if (spectrumDirty) {
+            return recomputeDFT();
         }
         
         spectrumLock.writeLock().lock();
@@ -305,17 +334,21 @@ public class StreamingDFT extends AbstractStreamingTransform<double[]> {
                 
                 // Update each frequency bin using sliding DFT
                 for (int k = 0; k < dftSize; k++) {
-                    // Subtract oldest sample contribution
-                    Complex oldContribution = new Complex(removed.value, 0);
+                    // Get current coefficient
+                    Complex coeff = dftCoefficients[k];
                     
-                    // Add newest sample contribution
-                    Complex newContribution = new Complex(newSample, 0);
+                    // Update in-place: (coeff - removed + newSample) * twiddle
+                    // First: coeff = coeff - removed + newSample
+                    double real = coeff.getReal() - removed.value + newSample;
+                    double imag = coeff.getImag();
                     
-                    // Update DFT coefficient
-                    dftCoefficients[k] = dftCoefficients[k]
-                        .sub(oldContribution)
-                        .add(newContribution)
-                        .mul(twiddleFactors[k]);
+                    // Then multiply by twiddle factor
+                    Complex twiddle = twiddleFactors[k];
+                    double newReal = real * twiddle.getReal() - imag * twiddle.getImag();
+                    double newImag = real * twiddle.getImag() + imag * twiddle.getReal();
+                    
+                    // Update the coefficient
+                    dftCoefficients[k] = new Complex(newReal, newImag);
                 }
             }
             
@@ -491,39 +524,8 @@ public class StreamingDFT extends AbstractStreamingTransform<double[]> {
             spectrumLock.readLock().unlock();
         }
         
-        // Spectrum is dirty, need to recompute
-        // Use write lock to ensure only one thread recomputes
-        spectrumLock.writeLock().lock();
-        try {
-            // Double-check pattern - another thread may have already recomputed
-            if (spectrumDirty) {
-                // We hold the write lock, safe to recompute
-                double[] bufferData = buffer.toArray();
-                double[] processedData = applyWindow(bufferData);
-                
-                double[] newSpectrum;
-                try {
-                    newSpectrum = dft.forward(processedData);
-                } catch (jwave.exceptions.JWaveException e) {
-                    throw new RuntimeException("DFT computation failed", e);
-                }
-                
-                spectrum = newSpectrum;
-                spectrumDirty = false;
-                
-                // Update DFT coefficients for future sliding updates
-                for (int k = 0; k < dftSize; k++) {
-                    dftCoefficients[k] = new Complex(
-                        spectrum[2 * k],
-                        spectrum[2 * k + 1]
-                    );
-                }
-            }
-            
-            return spectrum;
-        } finally {
-            spectrumLock.writeLock().unlock();
-        }
+        // Spectrum is dirty, need to recompute with proper locking
+        return recomputeDFT();
     }
     
     @Override

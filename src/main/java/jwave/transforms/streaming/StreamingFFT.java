@@ -305,17 +305,21 @@ public class StreamingFFT extends AbstractStreamingTransform<double[]> {
                 
                 // Update each frequency bin using sliding DFT
                 for (int k = 0; k < fftSize; k++) {
-                    // Subtract oldest sample contribution
-                    Complex oldContribution = new Complex(removed.value, 0);
+                    // Get current coefficient
+                    Complex coeff = dftCoefficients[k];
                     
-                    // Add newest sample contribution
-                    Complex newContribution = new Complex(newSample, 0);
+                    // Update in-place: (coeff - removed + newSample) * twiddle
+                    // First: coeff = coeff - removed + newSample
+                    double real = coeff.getReal() - removed.value + newSample;
+                    double imag = coeff.getImag();
                     
-                    // Update DFT coefficient
-                    dftCoefficients[k] = dftCoefficients[k]
-                        .sub(oldContribution)
-                        .add(newContribution)
-                        .mul(twiddleFactors[k]);
+                    // Then multiply by twiddle factor
+                    Complex twiddle = twiddleFactors[k];
+                    double newReal = real * twiddle.getReal() - imag * twiddle.getImag();
+                    double newImag = real * twiddle.getImag() + imag * twiddle.getReal();
+                    
+                    // Update the coefficient
+                    dftCoefficients[k] = new Complex(newReal, newImag);
                 }
             }
             
