@@ -42,15 +42,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
  */
 public class StreamingDFT extends AbstractStreamingTransform<double[]> {
     
-    /**
-     * Threshold ratio for switching from incremental to full DFT computation.
-     * When the number of new samples exceeds this fraction of the buffer size,
-     * a full O(N²) DFT recomputation is more efficient than O(N) sliding updates.
-     * 
-     * For DFT, this threshold is higher than FFT (1/8 vs 1/4) because the full
-     * DFT computation is O(N²) instead of O(N log N).
-     */
-    private static final double INCREMENTAL_UPDATE_THRESHOLD_RATIO = 0.125; // 1/8
+    // Note: Threshold ratio is now defined in AbstractStreamingTransform
     
     private final GeneralDiscreteFourierTransform dft;
     private final StreamingTransformConfig config;
@@ -300,9 +292,8 @@ public class StreamingDFT extends AbstractStreamingTransform<double[]> {
         // TODO: Fix sliding DFT implementation
         /*
         // For large updates, full DFT might be more efficient
-        // Ensure minimum threshold of 1 to avoid always falling back to full DFT for small sizes
-        int threshold = Math.max(1, (int)(dftSize * INCREMENTAL_UPDATE_THRESHOLD_RATIO));
-        if (newSamples.length > threshold) {
+        int threshold = calculateIncrementalThreshold(dftSize, DFT_INCREMENTAL_THRESHOLD_RATIO);
+        if (newSamples.length > threshold || buffer.hasWrapped()) {
             return recomputeDFT();
         }
         */

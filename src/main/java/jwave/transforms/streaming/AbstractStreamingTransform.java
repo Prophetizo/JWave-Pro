@@ -235,6 +235,33 @@ public abstract class AbstractStreamingTransform<T> implements StreamingTransfor
     protected abstract void resetTransformState();
     
     /**
+     * Threshold ratios for switching from incremental to full recomputation.
+     * 
+     * The threshold determines when incremental sliding DFT updates become
+     * less efficient than full recomputation. Different algorithms have
+     * different computational complexities:
+     * 
+     * - FFT: O(N log N) full computation vs O(N) incremental → threshold = 1/4
+     * - DFT: O(N²) full computation vs O(N) incremental → threshold = 1/8
+     * 
+     * Lower thresholds favor incremental updates for longer, which makes sense
+     * when full recomputation is more expensive (O(N²) vs O(N log N)).
+     */
+    protected static final double FFT_INCREMENTAL_THRESHOLD_RATIO = 0.25;  // 1/4
+    protected static final double DFT_INCREMENTAL_THRESHOLD_RATIO = 0.125; // 1/8
+    
+    /**
+     * Calculate the incremental update threshold for a given transform size and algorithm.
+     * 
+     * @param transformSize Size of the transform (FFT or DFT size)
+     * @param thresholdRatio The ratio to use (FFT_INCREMENTAL_THRESHOLD_RATIO or DFT_INCREMENTAL_THRESHOLD_RATIO)
+     * @return Minimum number of samples that triggers full recomputation (at least 1)
+     */
+    protected static int calculateIncrementalThreshold(int transformSize, double thresholdRatio) {
+        return Math.max(1, (int)(transformSize * thresholdRatio));
+    }
+    
+    /**
      * Update DFT coefficients using sliding DFT algorithm.
      * This method encapsulates the common sliding DFT update logic shared
      * between FFT and DFT implementations.
