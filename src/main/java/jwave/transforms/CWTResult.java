@@ -33,6 +33,12 @@ import jwave.datatypes.natives.Complex;
 public class CWTResult {
 
   /**
+   * Small epsilon value for robust floating-point comparisons.
+   * Used for phase normalization to handle values very close to π.
+   */
+  private static final double EPSILON = 1e-10;
+
+  /**
    * The complex-valued CWT coefficients.
    * First dimension is scale index, second dimension is time index.
    */
@@ -117,8 +123,20 @@ public class CWTResult {
     
     for (int i = 0; i < nScales; i++) {
       for (int j = 0; j < nTime; j++) {
-        // Convert from degrees (returned by getPhi()) to radians
-        phase[i][j] = _coefficients[i][j].getPhi() * Math.PI / 180.0;
+        // Use atan2 to get phase angle (returns [-π, π])
+        double real = _coefficients[i][j].getReal();
+        double imag = _coefficients[i][j].getImag();
+        double angle = Math.atan2(imag, real);
+        
+        // Normalize to (-π, π] by mapping π to -π
+        // This ensures unique angle representation in the half-open interval
+        // Note: atan2 already returns values in [-π, π], so we only need to
+        // handle the boundary case where angle might be exactly π
+        if (Math.abs(angle - Math.PI) < EPSILON) {
+            phase[i][j] = -Math.PI;
+        } else {
+            phase[i][j] = angle;
+        }
       }
     }
     
