@@ -153,7 +153,7 @@ public class StreamingCWT extends AbstractStreamingTransform<CWTResult> {
      */
     public void setUseFFT(boolean useFFT) {
         this.useFFT = useFFT;
-        if (useFFT && buffer != null) {
+        if (useFFT && bufferSize > 0) {
             // Pre-calculate padded length for FFT
             this.paddedLength = MathUtils.nextPowerOfTwo(bufferSize);
         }
@@ -169,8 +169,13 @@ public class StreamingCWT extends AbstractStreamingTransform<CWTResult> {
     
     @Override
     protected void initializeTransformState() {
-        // Initialize coefficient storage
+        // Initialize coefficient storage with zeros
         coefficients = new Complex[numScales][bufferSize];
+        for (int i = 0; i < numScales; i++) {
+            for (int j = 0; j < bufferSize; j++) {
+                coefficients[i][j] = new Complex(0, 0);
+            }
+        }
         
         // Initialize time axis
         timeAxis = new double[bufferSize];
@@ -363,6 +368,25 @@ public class StreamingCWT extends AbstractStreamingTransform<CWTResult> {
     }
     
     /**
+     * Update coefficients for a range of time indices at a given scale.
+     * 
+     * @param scaleIdx Scale index
+     * @param scale Scale value
+     * @param startIdx Starting time index (inclusive)
+     * @param endIdx Ending time index (inclusive)
+     * @param bufferData Current buffer data
+     * @param support Pre-computed wavelet support bounds
+     */
+    private void updateCoefficientRange(int scaleIdx, double scale, int startIdx, int endIdx,
+                                      double[] bufferData, double[] support) {
+        for (int timeIdx = startIdx; timeIdx <= endIdx; timeIdx++) {
+            coefficients[scaleIdx][timeIdx] = computeCoefficientDirect(
+                bufferData, timeIdx, scale, samplingRate, support
+            );
+        }
+    }
+    
+    /**
      * Update all coefficients at a given scale.
      * 
      * @param scaleIdx Scale index
@@ -372,11 +396,7 @@ public class StreamingCWT extends AbstractStreamingTransform<CWTResult> {
      */
     private void updateAllCoefficientsAtScale(int scaleIdx, double scale, 
                                             double[] bufferData, double[] support) {
-        for (int timeIdx = 0; timeIdx < bufferSize; timeIdx++) {
-            coefficients[scaleIdx][timeIdx] = computeCoefficientDirect(
-                bufferData, timeIdx, scale, samplingRate, support
-            );
-        }
+        updateCoefficientRange(scaleIdx, scale, 0, bufferSize - 1, bufferData, support);
     }
     
     /**
@@ -395,11 +415,7 @@ public class StreamingCWT extends AbstractStreamingTransform<CWTResult> {
         int startUpdateIdx = Math.max(0, newSampleStartIdx - supportRadius);
         int endUpdateIdx = bufferSize - 1;
         
-        for (int timeIdx = startUpdateIdx; timeIdx <= endUpdateIdx; timeIdx++) {
-            coefficients[scaleIdx][timeIdx] = computeCoefficientDirect(
-                bufferData, timeIdx, scale, samplingRate, support
-            );
-        }
+        updateCoefficientRange(scaleIdx, scale, startUpdateIdx, endUpdateIdx, bufferData, support);
     }
     
     /**
@@ -428,10 +444,8 @@ public class StreamingCWT extends AbstractStreamingTransform<CWTResult> {
             
             // Update coefficients from index 0 up to (but not including) mainRangeStart
             // These are the edge coefficients affected by circular buffer wraparound
-            for (int timeIdx = 0; timeIdx < mainRangeStart && timeIdx < bufferSize; timeIdx++) {
-                coefficients[scaleIdx][timeIdx] = computeCoefficientDirect(
-                    bufferData, timeIdx, scale, samplingRate, support
-                );
+            if (mainRangeStart > 0) {
+                updateCoefficientRange(scaleIdx, scale, 0, mainRangeStart - 1, bufferData, support);
             }
         }
     }
@@ -494,9 +508,12 @@ public class StreamingCWT extends AbstractStreamingTransform<CWTResult> {
         try {
             // Create deep copy of coefficients to prevent external modification
             Complex[][] coeffCopy = new Complex[numScales][bufferSize];
-            for (int i = 0; i < numScales && i < coefficients.length; i++) {
-                for (int j = 0; j < bufferSize && j < coefficients[i].length; j++) {
-                    if (coefficients[i][j] != null) {
+            
+            // Copy existing coefficients and fill with zeros as needed
+            for (int i = 0; i < numScales; i++) {
+                for (int j = 0; j < bufferSize; j++) {
+                    // Check bounds to handle any size mismatches
+                    if (i < coefficients.length && j < coefficients[i].length && coefficients[i][j] != null) {
                         coeffCopy[i][j] = new Complex(
                             coefficients[i][j].getReal(),
                             coefficients[i][j].getImag()
@@ -504,16 +521,6 @@ public class StreamingCWT extends AbstractStreamingTransform<CWTResult> {
                     } else {
                         coeffCopy[i][j] = new Complex(0, 0);
                     }
-                }
-                // Fill remaining with zeros if needed
-                for (int j = coefficients[i].length; j < bufferSize; j++) {
-                    coeffCopy[i][j] = new Complex(0, 0);
-                }
-            }
-            // Fill remaining scales with zeros if needed
-            for (int i = coefficients.length; i < numScales; i++) {
-                for (int j = 0; j < bufferSize; j++) {
-                    coeffCopy[i][j] = new Complex(0, 0);
                 }
             }
             
