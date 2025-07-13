@@ -382,7 +382,7 @@ public class StreamingFFT extends AbstractStreamingTransform<double[]> {
     private int calculateNewSampleIndex(int sampleIdx, int numNewSamples) {
         // Position in buffer where this new sample will be placed
         // This accounts for the circular nature of the buffer
-        return (buffer.size() - numNewSamples + sampleIdx) % fftSize;
+        return ((buffer.size() - numNewSamples + sampleIdx) % fftSize + fftSize) % fftSize;
     }
     
     /**
