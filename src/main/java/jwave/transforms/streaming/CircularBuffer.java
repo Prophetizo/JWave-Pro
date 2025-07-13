@@ -318,4 +318,15 @@ public class CircularBuffer {
     public boolean hasWrapped() {
         return hasWrapped;
     }
+    
+    /**
+     * Get the current write index where the next sample would be written.
+     * This is useful for calculating which samples are being overwritten
+     * in sliding window algorithms.
+     * 
+     * @return the write index (0 to capacity-1)
+     */
+    public int getWriteIndex() {
+        return writeIndex;
+    }
 }

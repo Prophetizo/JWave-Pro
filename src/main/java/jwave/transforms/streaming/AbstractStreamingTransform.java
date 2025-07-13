@@ -8,6 +8,7 @@
 package jwave.transforms.streaming;
 
 import jwave.transforms.BasicTransform;
+import jwave.datatypes.natives.Complex;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
@@ -232,6 +233,44 @@ public abstract class AbstractStreamingTransform<T> implements StreamingTransfor
      * Called by reset() to clear coefficient caches and other state.
      */
     protected abstract void resetTransformState();
+    
+    /**
+     * Update DFT coefficients using sliding DFT algorithm.
+     * This method encapsulates the common sliding DFT update logic shared
+     * between FFT and DFT implementations.
+     * 
+     * @param dftCoefficients Array of current DFT coefficients to update
+     * @param twiddleFactors Pre-computed twiddle factors for the transform
+     * @param removedValue Value of the sample being removed from the sliding window
+     * @param newSample Value of the new sample being added to the sliding window
+     * @param transformSize Size of the transform (FFT size or DFT size)
+     */
+    protected static void updateSlidingDFTCoefficients(
+            Complex[] dftCoefficients,
+            Complex[] twiddleFactors,
+            double removedValue,
+            double newSample,
+            int transformSize) {
+        
+        // Update each frequency bin using sliding DFT algorithm
+        for (int k = 0; k < transformSize; k++) {
+            // Get current coefficient
+            Complex coeff = dftCoefficients[k];
+            
+            // Update in-place: (coeff - removed + newSample) * twiddle
+            // First: coeff = coeff - removed + newSample
+            double real = coeff.getReal() - removedValue + newSample;
+            double imag = coeff.getImag();
+            
+            // Then multiply by twiddle factor
+            Complex twiddle = twiddleFactors[k];
+            double newReal = real * twiddle.getReal() - imag * twiddle.getImag();
+            double newImag = real * twiddle.getImag() + imag * twiddle.getReal();
+            
+            // Update the coefficient
+            dftCoefficients[k] = new Complex(newReal, newImag);
+        }
+    }
     
     /**
      * Add a listener for transform events.

@@ -92,6 +92,9 @@ public class StreamingFFT extends AbstractStreamingTransform<double[]> {
         this.useWindow = useWindow;
         if (useWindow && window == null && fftSize > 0) {
             initializeWindow();
+        } else if (!useWindow) {
+            // Clear window array to free memory when windowing is disabled
+            window = null;
         }
         // Mark spectrum as dirty to force recomputation with new window setting
         spectrumLock.writeLock().lock();
@@ -268,7 +271,9 @@ public class StreamingFFT extends AbstractStreamingTransform<double[]> {
      */
     private double[] performIncrementalUpdate(double[] newSamples) {
         // For large updates, full FFT is more efficient
-        if (newSamples.length > (int)(fftSize * INCREMENTAL_UPDATE_THRESHOLD_RATIO) || buffer.hasWrapped()) {
+        // Ensure minimum threshold of 1 to avoid always falling back to full FFT for small sizes
+        int threshold = Math.max(1, (int)(fftSize * INCREMENTAL_UPDATE_THRESHOLD_RATIO));
+        if (newSamples.length > threshold || buffer.hasWrapped()) {
             return recomputeFFT();
         }
         
@@ -303,23 +308,8 @@ public class StreamingFFT extends AbstractStreamingTransform<double[]> {
                 }
                 
                 // Update each frequency bin using sliding DFT
-                for (int k = 0; k < fftSize; k++) {
-                    // Get current coefficient
-                    Complex coeff = dftCoefficients[k];
-                    
-                    // Update in-place: (coeff - removed + newSample) * twiddle
-                    // First: coeff = coeff - removed + newSample
-                    double real = coeff.getReal() - removed.value + newSample;
-                    double imag = coeff.getImag();
-                    
-                    // Then multiply by twiddle factor
-                    Complex twiddle = twiddleFactors[k];
-                    double newReal = real * twiddle.getReal() - imag * twiddle.getImag();
-                    double newImag = real * twiddle.getImag() + imag * twiddle.getReal();
-                    
-                    // Update the coefficient
-                    dftCoefficients[k] = new Complex(newReal, newImag);
-                }
+                updateSlidingDFTCoefficients(dftCoefficients, twiddleFactors, 
+                                           removed.value, newSample, fftSize);
             }
             
             // Convert back to interleaved format
@@ -370,13 +360,12 @@ public class StreamingFFT extends AbstractStreamingTransform<double[]> {
         }
         
         // Buffer is full, calculate which sample is being overwritten
-        // The write position in the circular buffer moves forward with each new sample
-        // We need to find which old sample corresponds to the current new sample position
+        // Use the actual write index from the circular buffer for accuracy
         
-        // Current write position in the circular buffer (before adding new samples)
-        int currentWritePos = buffer.size() % fftSize;
+        // Get the current write position from the buffer
+        int currentWritePos = buffer.getWriteIndex();
         
-        // The position where this specific new sample will be written
+        // Calculate which sample position will be overwritten by this specific new sample
         // We go back by (numNewSamples - sampleIdx) positions from current write position
         int removedIdx = (currentWritePos - numNewSamples + sampleIdx + fftSize) % fftSize;
         
@@ -392,8 +381,9 @@ public class StreamingFFT extends AbstractStreamingTransform<double[]> {
      */
     private int calculateNewSampleIndex(int sampleIdx, int numNewSamples) {
         // Position in buffer where this new sample will be placed
-        // This accounts for the circular nature of the buffer
-        return ((buffer.size() - numNewSamples + sampleIdx) % fftSize + fftSize) % fftSize;
+        // Use the actual write index for accuracy
+        int currentWritePos = buffer.getWriteIndex();
+        return ((currentWritePos - numNewSamples + sampleIdx) % fftSize + fftSize) % fftSize;
     }
     
     /**
@@ -416,16 +406,69 @@ public class StreamingFFT extends AbstractStreamingTransform<double[]> {
      * @return Magnitude spectrum of length N/2+1 for real input
      */
     public double[] getMagnitudeSpectrum() {
-        double[] spec = getCachedCoefficients();
-        double[] magnitude = new double[halfSize + 1];
-        
-        for (int i = 0; i <= halfSize; i++) {
-            double real = spec[2 * i];
-            double imag = spec[2 * i + 1];
-            magnitude[i] = Math.sqrt(real * real + imag * imag);
+        // First check with read lock
+        spectrumLock.readLock().lock();
+        try {
+            if (!spectrumDirty) {
+                // Fast path - compute magnitude while holding read lock
+                double[] magnitude = new double[halfSize + 1];
+                for (int i = 0; i <= halfSize; i++) {
+                    double real = spectrum[2 * i];
+                    double imag = spectrum[2 * i + 1];
+                    magnitude[i] = Math.sqrt(real * real + imag * imag);
+                }
+                return magnitude;
+            }
+        } finally {
+            spectrumLock.readLock().unlock();
         }
         
-        return magnitude;
+        // Spectrum is dirty, need to recompute
+        return getMagnitudeSpectrumWithRecompute();
+    }
+    
+    /**
+     * Helper method to compute magnitude spectrum when recomputation is needed.
+     */
+    private double[] getMagnitudeSpectrumWithRecompute() {
+        spectrumLock.writeLock().lock();
+        try {
+            // Double-check pattern - recompute if still dirty
+            if (spectrumDirty) {
+                double[] bufferData = buffer.toArray();
+                double[] processedData = applyWindow(bufferData);
+                
+                double[] newSpectrum;
+                try {
+                    newSpectrum = fft.forward(processedData);
+                } catch (jwave.exceptions.JWaveException e) {
+                    throw new RuntimeException("FFT computation failed", e);
+                }
+                
+                spectrum = newSpectrum;
+                spectrumDirty = false;
+                
+                // Update DFT coefficients for future sliding updates
+                for (int k = 0; k < fftSize; k++) {
+                    dftCoefficients[k] = new Complex(
+                        spectrum[2 * k],
+                        spectrum[2 * k + 1]
+                    );
+                }
+            }
+            
+            // Compute magnitude while holding write lock
+            double[] magnitude = new double[halfSize + 1];
+            for (int i = 0; i <= halfSize; i++) {
+                double real = spectrum[2 * i];
+                double imag = spectrum[2 * i + 1];
+                magnitude[i] = Math.sqrt(real * real + imag * imag);
+            }
+            
+            return magnitude;
+        } finally {
+            spectrumLock.writeLock().unlock();
+        }
     }
     
     /**

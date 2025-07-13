@@ -98,6 +98,9 @@ public class StreamingDFT extends AbstractStreamingTransform<double[]> {
         this.useWindow = useWindow;
         if (useWindow && window == null && dftSize > 0) {
             initializeWindow();
+        } else if (!useWindow) {
+            // Clear window array to free memory when windowing is disabled
+            window = null;
         }
         // Mark spectrum as dirty to force recomputation with new window setting
         spectrumLock.writeLock().lock();
@@ -292,7 +295,9 @@ public class StreamingDFT extends AbstractStreamingTransform<double[]> {
      */
     private double[] performIncrementalUpdate(double[] newSamples) {
         // For large updates, full DFT might be more efficient
-        if (newSamples.length > (int)(dftSize * INCREMENTAL_UPDATE_THRESHOLD_RATIO)) {
+        // Ensure minimum threshold of 1 to avoid always falling back to full DFT for small sizes
+        int threshold = Math.max(1, (int)(dftSize * INCREMENTAL_UPDATE_THRESHOLD_RATIO));
+        if (newSamples.length > threshold) {
             return recomputeDFT();
         }
         
@@ -332,23 +337,8 @@ public class StreamingDFT extends AbstractStreamingTransform<double[]> {
                 }
                 
                 // Update each frequency bin using sliding DFT
-                for (int k = 0; k < dftSize; k++) {
-                    // Get current coefficient
-                    Complex coeff = dftCoefficients[k];
-                    
-                    // Update in-place: (coeff - removed + newSample) * twiddle
-                    // First: coeff = coeff - removed + newSample
-                    double real = coeff.getReal() - removed.value + newSample;
-                    double imag = coeff.getImag();
-                    
-                    // Then multiply by twiddle factor
-                    Complex twiddle = twiddleFactors[k];
-                    double newReal = real * twiddle.getReal() - imag * twiddle.getImag();
-                    double newImag = real * twiddle.getImag() + imag * twiddle.getReal();
-                    
-                    // Update the coefficient
-                    dftCoefficients[k] = new Complex(newReal, newImag);
-                }
+                updateSlidingDFTCoefficients(dftCoefficients, twiddleFactors, 
+                                           removed.value, newSample, dftSize);
             }
             
             // Convert back to interleaved format
@@ -399,13 +389,12 @@ public class StreamingDFT extends AbstractStreamingTransform<double[]> {
         }
         
         // Buffer is full, calculate which sample is being overwritten
-        // The write position in the circular buffer moves forward with each new sample
-        // We need to find which old sample corresponds to the current new sample position
+        // Use the actual write index from the circular buffer for accuracy
         
-        // Current write position in the circular buffer (before adding new samples)
-        int currentWritePos = buffer.size() % dftSize;
+        // Get the current write position from the buffer
+        int currentWritePos = buffer.getWriteIndex();
         
-        // The position where this specific new sample will be written
+        // Calculate which sample position will be overwritten by this specific new sample
         // We go back by (numNewSamples - sampleIdx) positions from current write position
         int removedIdx = (currentWritePos - numNewSamples + sampleIdx + dftSize) % dftSize;
         
@@ -421,8 +410,9 @@ public class StreamingDFT extends AbstractStreamingTransform<double[]> {
      */
     private int calculateNewSampleIndex(int sampleIdx, int numNewSamples) {
         // Position in buffer where this new sample will be placed
-        // This accounts for the circular nature of the buffer
-        return ((buffer.size() - numNewSamples + sampleIdx) % dftSize + dftSize) % dftSize;
+        // Use the actual write index for accuracy
+        int currentWritePos = buffer.getWriteIndex();
+        return ((currentWritePos - numNewSamples + sampleIdx) % dftSize + dftSize) % dftSize;
     }
     
     /**
@@ -445,16 +435,50 @@ public class StreamingDFT extends AbstractStreamingTransform<double[]> {
      * @return Magnitude spectrum of length N for real input
      */
     public double[] getMagnitudeSpectrum() {
-        double[] spec = getCachedCoefficients();
-        double[] magnitude = new double[dftSize];
-        
-        for (int i = 0; i < dftSize; i++) {
-            double real = spec[2 * i];
-            double imag = spec[2 * i + 1];
-            magnitude[i] = Math.sqrt(real * real + imag * imag);
+        // First check with read lock
+        spectrumLock.readLock().lock();
+        try {
+            if (!spectrumDirty) {
+                // Fast path - compute magnitude while holding read lock
+                double[] magnitude = new double[dftSize];
+                for (int i = 0; i < dftSize; i++) {
+                    double real = spectrum[2 * i];
+                    double imag = spectrum[2 * i + 1];
+                    magnitude[i] = Math.sqrt(real * real + imag * imag);
+                }
+                return magnitude;
+            }
+        } finally {
+            spectrumLock.readLock().unlock();
         }
         
-        return magnitude;
+        // Spectrum is dirty, need to recompute
+        return getMagnitudeSpectrumWithRecompute();
+    }
+    
+    /**
+     * Helper method to compute magnitude spectrum when recomputation is needed.
+     */
+    private double[] getMagnitudeSpectrumWithRecompute() {
+        spectrumLock.writeLock().lock();
+        try {
+            // Double-check pattern
+            if (spectrumDirty) {
+                performDFTComputation();
+            }
+            
+            // Compute magnitude while holding write lock
+            double[] magnitude = new double[dftSize];
+            for (int i = 0; i < dftSize; i++) {
+                double real = spectrum[2 * i];
+                double imag = spectrum[2 * i + 1];
+                magnitude[i] = Math.sqrt(real * real + imag * imag);
+            }
+            
+            return magnitude;
+        } finally {
+            spectrumLock.writeLock().unlock();
+        }
     }
     
     /**
@@ -463,16 +487,50 @@ public class StreamingDFT extends AbstractStreamingTransform<double[]> {
      * @return Power spectrum of length N for real input
      */
     public double[] getPowerSpectrum() {
-        double[] spec = getCachedCoefficients();
-        double[] power = new double[dftSize];
-        
-        for (int i = 0; i < dftSize; i++) {
-            double real = spec[2 * i];
-            double imag = spec[2 * i + 1];
-            power[i] = real * real + imag * imag;
+        // First check with read lock
+        spectrumLock.readLock().lock();
+        try {
+            if (!spectrumDirty) {
+                // Fast path - compute power while holding read lock
+                double[] power = new double[dftSize];
+                for (int i = 0; i < dftSize; i++) {
+                    double real = spectrum[2 * i];
+                    double imag = spectrum[2 * i + 1];
+                    power[i] = real * real + imag * imag;
+                }
+                return power;
+            }
+        } finally {
+            spectrumLock.readLock().unlock();
         }
         
-        return power;
+        // Spectrum is dirty, need to recompute
+        return getPowerSpectrumWithRecompute();
+    }
+    
+    /**
+     * Helper method to compute power spectrum when recomputation is needed.
+     */
+    private double[] getPowerSpectrumWithRecompute() {
+        spectrumLock.writeLock().lock();
+        try {
+            // Double-check pattern
+            if (spectrumDirty) {
+                performDFTComputation();
+            }
+            
+            // Compute power while holding write lock
+            double[] power = new double[dftSize];
+            for (int i = 0; i < dftSize; i++) {
+                double real = spectrum[2 * i];
+                double imag = spectrum[2 * i + 1];
+                power[i] = real * real + imag * imag;
+            }
+            
+            return power;
+        } finally {
+            spectrumLock.writeLock().unlock();
+        }
     }
     
     /**
@@ -481,16 +539,50 @@ public class StreamingDFT extends AbstractStreamingTransform<double[]> {
      * @return Phase spectrum in radians of length N for real input
      */
     public double[] getPhaseSpectrum() {
-        double[] spec = getCachedCoefficients();
-        double[] phase = new double[dftSize];
-        
-        for (int i = 0; i < dftSize; i++) {
-            double real = spec[2 * i];
-            double imag = spec[2 * i + 1];
-            phase[i] = Math.atan2(imag, real);
+        // First check with read lock
+        spectrumLock.readLock().lock();
+        try {
+            if (!spectrumDirty) {
+                // Fast path - compute phase while holding read lock
+                double[] phase = new double[dftSize];
+                for (int i = 0; i < dftSize; i++) {
+                    double real = spectrum[2 * i];
+                    double imag = spectrum[2 * i + 1];
+                    phase[i] = Math.atan2(imag, real);
+                }
+                return phase;
+            }
+        } finally {
+            spectrumLock.readLock().unlock();
         }
         
-        return phase;
+        // Spectrum is dirty, need to recompute
+        return getPhaseSpectrumWithRecompute();
+    }
+    
+    /**
+     * Helper method to compute phase spectrum when recomputation is needed.
+     */
+    private double[] getPhaseSpectrumWithRecompute() {
+        spectrumLock.writeLock().lock();
+        try {
+            // Double-check pattern
+            if (spectrumDirty) {
+                performDFTComputation();
+            }
+            
+            // Compute phase while holding write lock
+            double[] phase = new double[dftSize];
+            for (int i = 0; i < dftSize; i++) {
+                double real = spectrum[2 * i];
+                double imag = spectrum[2 * i + 1];
+                phase[i] = Math.atan2(imag, real);
+            }
+            
+            return phase;
+        } finally {
+            spectrumLock.writeLock().unlock();
+        }
     }
     
     /**
