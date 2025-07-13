@@ -118,7 +118,13 @@ public class CWTResult {
     for (int i = 0; i < nScales; i++) {
       for (int j = 0; j < nTime; j++) {
         // Convert from degrees (returned by getPhi()) to radians
-        phase[i][j] = _coefficients[i][j].getPhi() * Math.PI / 180.0;
+        double phiDegrees = _coefficients[i][j].getPhi();
+        double phiRadians = phiDegrees * Math.PI / 180.0;
+        // Normalize to [-π, π]
+        if (phiRadians > Math.PI) {
+          phiRadians -= 2 * Math.PI;
+        }
+        phase[i][j] = phiRadians;
       }
     }
     
