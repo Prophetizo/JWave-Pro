@@ -303,11 +303,18 @@ public class StreamingWPT extends AbstractStreamingTransform<double[]> {
             );
         }
         
+        // Get coefficients once to avoid repeated computation/copying
+        double[] coeffs = getCachedCoefficients();
+        
         int packetsAtLevel = packetCounts[level];
+        int packetSize = packetSizes[level];
         double[][] packets = new double[packetsAtLevel][];
         
+        // Extract all packets at this level efficiently
         for (int i = 0; i < packetsAtLevel; i++) {
-            packets[i] = getPacket(level, i);
+            int packetOffset = i * packetSize;
+            packets[i] = new double[packetSize];
+            System.arraycopy(coeffs, packetOffset, packets[i], 0, packetSize);
         }
         
         return packets;
@@ -384,13 +391,27 @@ public class StreamingWPT extends AbstractStreamingTransform<double[]> {
      * @return Array of energy values for each packet at the level
      */
     public double[] getPacketEnergies(int level) {
-        double[][] packets = getAllPacketsAtLevel(level);
-        double[] energies = new double[packets.length];
+        if (level < 0 || level > maxLevel) {
+            throw new IllegalArgumentException(
+                "Level must be between 0 and " + maxLevel
+            );
+        }
         
-        for (int i = 0; i < packets.length; i++) {
+        // Get coefficients once to avoid repeated computation/copying
+        double[] coeffs = getCachedCoefficients();
+        
+        int packetsAtLevel = packetCounts[level];
+        int packetSize = packetSizes[level];
+        double[] energies = new double[packetsAtLevel];
+        
+        // Calculate energy for each packet directly from coefficients
+        for (int i = 0; i < packetsAtLevel; i++) {
             double energy = 0.0;
-            for (double coeff : packets[i]) {
-                energy += coeff * coeff;
+            int packetOffset = i * packetSize;
+            int packetEnd = packetOffset + packetSize;
+            
+            for (int j = packetOffset; j < packetEnd; j++) {
+                energy += coeffs[j] * coeffs[j];
             }
             energies[i] = energy;
         }
