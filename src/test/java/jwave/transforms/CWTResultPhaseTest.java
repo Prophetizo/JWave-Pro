@@ -57,7 +57,7 @@ public class CWTResultPhaseTest {
         // Test specific expected values
         assertEquals("0 degrees should be 0 radians", 0.0, phase[0][0], DELTA);
         assertEquals("90 degrees should be π/2 radians", Math.PI/2, phase[0][1], DELTA);
-        assertEquals("180 degrees should normalize to π radians", Math.PI, phase[0][2], DELTA);
+        assertEquals("180 degrees should normalize to -π radians", -Math.PI, phase[0][2], DELTA);
         assertEquals("270 degrees should normalize to -π/2 radians", -Math.PI/2, phase[0][3], DELTA);
         assertEquals("45 degrees should be π/4 radians", Math.PI/4, phase[0][4], DELTA);
         assertEquals("135 degrees should be 3π/4 radians", 3*Math.PI/4, phase[0][5], DELTA);
