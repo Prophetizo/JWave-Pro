@@ -53,12 +53,12 @@ public class StreamingCWT extends AbstractStreamingTransform<CWTResult> {
     private boolean useLogScales;
     
     // Sampling rate
-    private double samplingRate = 1.0;
+    private volatile double samplingRate = 1.0;
     
     // Current CWT coefficients
     private Complex[][] coefficients;
     private double[] timeAxis;
-    private boolean coefficientsDirty = false;
+    private volatile boolean coefficientsDirty = false;
     
     // Thread safety for coefficient access
     private final ReadWriteLock coeffLock = new ReentrantReadWriteLock();
@@ -131,12 +131,17 @@ public class StreamingCWT extends AbstractStreamingTransform<CWTResult> {
             throw new IllegalArgumentException("Sampling rate must be positive");
         }
         this.samplingRate = samplingRate;
-        // Regenerate time axis
-        if (timeAxis != null) {
-            double dt = 1.0 / samplingRate;
-            for (int i = 0; i < timeAxis.length; i++) {
-                timeAxis[i] = i * dt;
+        // Regenerate time axis with proper synchronization
+        coeffLock.writeLock().lock();
+        try {
+            if (timeAxis != null) {
+                double dt = 1.0 / samplingRate;
+                for (int i = 0; i < timeAxis.length; i++) {
+                    timeAxis[i] = i * dt;
+                }
             }
+        } finally {
+            coeffLock.writeLock().unlock();
         }
     }
     
@@ -202,7 +207,12 @@ public class StreamingCWT extends AbstractStreamingTransform<CWTResult> {
                 
             case LAZY:
                 // Just mark coefficients as dirty, don't compute yet
-                coefficientsDirty = true;
+                coeffLock.writeLock().lock();
+                try {
+                    coefficientsDirty = true;
+                } finally {
+                    coeffLock.writeLock().unlock();
+                }
                 // Return current result
                 return createResult();
                 
