@@ -120,11 +120,8 @@ public class CWTResult {
         // Convert from degrees (returned by getPhi()) to radians
         double phiDegrees = _coefficients[i][j].getPhi();
         double phiRadians = phiDegrees * Math.PI / 180.0;
-        // Normalize to [-π, π]
-        if (phiRadians > Math.PI) {
-          phiRadians -= 2 * Math.PI;
-        }
-        phase[i][j] = phiRadians;
+        // Normalize to [-π, π] using IEEE remainder (handles all cases)
+        phase[i][j] = Math.IEEEremainder(phiRadians, 2 * Math.PI);
       }
     }
     
