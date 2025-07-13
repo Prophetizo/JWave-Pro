@@ -122,9 +122,9 @@ public class CWTResult {
         double phiRadians = phiDegrees * Math.PI / 180.0;
         // Normalize to [-π, π] using IEEE remainder
         double normalizedPhase = Math.IEEEremainder(phiRadians, 2 * Math.PI);
-        // IEEEremainder maps π to -π, but we want to keep π as π for consistency
-        if (normalizedPhase == -Math.PI) {
-          normalizedPhase = Math.PI;
+        // Map π to -π for consistency with test expectations
+        if (Math.abs(normalizedPhase - Math.PI) < 1e-10) {
+          normalizedPhase = -Math.PI;
         }
         phase[i][j] = normalizedPhase;
       }
