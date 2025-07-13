@@ -165,19 +165,22 @@ public class StreamingFWT extends AbstractStreamingTransform<double[]> {
     /**
      * Perform incremental FWT update for new samples.
      * 
-     * IMPORTANT: Currently, this method falls back to full recomputation,
-     * making INCREMENTAL behave the same as FULL strategy. True incremental
-     * updates for FWT remain a future optimization.
+     * IMPORTANT: Due to the recursive nature of FWT, implementing truly incremental
+     * updates is complex with limited performance benefit. Currently, this method 
+     * falls back to full recomputation, making INCREMENTAL behave the same as 
+     * FULL strategy.
      * 
-     * For FWT, incremental updates are challenging because:
+     * For FWT, incremental updates face these challenges:
      * 1. The transform is recursive with each level depending on the previous
      * 2. Changes propagate through all decomposition levels
      * 3. The dyadic structure means updates affect multiple coefficients
+     * 4. Boundary effects propagate through the transform
      * 
      * Future optimization opportunities:
      * - Lifting scheme implementation for in-place updates
      * - Boundary wavelets for localized updates
      * - Lazy evaluation of unaffected coefficient blocks
+     * - Cache intermediate decomposition results
      * 
      * @param newSamples The new samples added to the buffer
      * @return Updated wavelet coefficients
@@ -268,8 +271,15 @@ public class StreamingFWT extends AbstractStreamingTransform<double[]> {
      * 
      * @param level The level up to which to reconstruct (0 = full reconstruction)
      * @return Reconstructed signal
+     * @throws IllegalArgumentException if level is out of range
      */
     public double[] reconstruct(int level) {
+        if (level < 0 || level > maxLevel) {
+            throw new IllegalArgumentException(
+                "Level must be between 0 and " + maxLevel
+            );
+        }
+        
         double[] coeffs = getCachedCoefficients();
         
         try {

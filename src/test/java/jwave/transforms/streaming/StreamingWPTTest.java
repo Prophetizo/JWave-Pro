@@ -479,6 +479,34 @@ public class StreamingWPTTest {
         wpt.getPacketPath(16);
     }
     
+    @Test(expected = IllegalArgumentException.class)
+    public void testReconstructInvalidLevelNegative() {
+        StreamingTransformConfig config = StreamingTransformConfig.builder()
+            .bufferSize(32)
+            .maxLevel(3)
+            .build();
+        
+        StreamingWPT wpt = new StreamingWPT(new Haar1(), config);
+        wpt.update(new double[32]);
+        
+        // Should throw exception for negative level
+        wpt.reconstruct(-1);
+    }
+    
+    @Test(expected = IllegalArgumentException.class)
+    public void testReconstructInvalidLevelTooHigh() {
+        StreamingTransformConfig config = StreamingTransformConfig.builder()
+            .bufferSize(32)
+            .maxLevel(3)
+            .build();
+        
+        StreamingWPT wpt = new StreamingWPT(new Haar1(), config);
+        wpt.update(new double[32]);
+        
+        // Should throw exception for level > maxLevel
+        wpt.reconstruct(4);
+    }
+    
     @Test
     public void testBufferWraparound() {
         StreamingTransformConfig config = StreamingTransformConfig.builder()

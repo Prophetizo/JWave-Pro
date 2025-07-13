@@ -369,8 +369,15 @@ public class StreamingWPT extends AbstractStreamingTransform<double[]> {
      * 
      * @param level The level up to which to reconstruct (0 = full reconstruction)
      * @return Reconstructed signal
+     * @throws IllegalArgumentException if level is out of range
      */
     public double[] reconstruct(int level) {
+        if (level < 0 || level > maxLevel) {
+            throw new IllegalArgumentException(
+                "Level must be between 0 and " + maxLevel
+            );
+        }
+        
         double[] coeffs = getCachedCoefficients();
         
         try {
