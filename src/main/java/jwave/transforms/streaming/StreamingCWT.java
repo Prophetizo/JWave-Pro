@@ -425,9 +425,28 @@ public class StreamingCWT extends AbstractStreamingTransform<CWTResult> {
      * beginning of the buffer may need updating if their support window extends
      * to include the new samples (due to circular buffer wraparound).
      * 
-     * For example, if buffer has 100 samples and new samples start at index 95,
-     * and supportRadius is 10, then coefficients at indices 0-4 need updating
-     * because their support windows extend into the new samples via wraparound.
+     * Example with concrete numbers:
+     * - Buffer size: 100 samples (indices 0-99)
+     * - New samples added: 5 samples starting at index 95 (indices 95-99)
+     * - Support radius: 10 samples
+     * 
+     * For coefficient at index 0:
+     * - Its support window covers indices [-10, 10] relative to position 0
+     * - In circular buffer terms, this means indices [90-99] and [0-10]
+     * - Since new samples are at indices 95-99, this coefficient IS affected
+     * 
+     * For coefficient at index 4:
+     * - Its support window covers indices [-6, 14] relative to position 4
+     * - In circular buffer terms, this means indices [94-99] and [0-14]
+     * - Since new samples are at indices 95-99, this coefficient IS affected
+     * 
+     * For coefficient at index 5:
+     * - Its support window covers indices [-5, 15] relative to position 5
+     * - In circular buffer terms, this means indices [95-99] and [0-15]
+     * - The leftmost edge of support (index 95) just touches the new samples
+     * - This coefficient is NOT affected by wraparound (handled by main update)
+     * 
+     * Therefore, coefficients at indices 0-4 need updating via this method.
      * 
      * @param scaleIdx Scale index
      * @param scale Scale value
