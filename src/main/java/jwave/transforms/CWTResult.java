@@ -117,16 +117,14 @@ public class CWTResult {
     
     for (int i = 0; i < nScales; i++) {
       for (int j = 0; j < nTime; j++) {
-        // Convert from degrees (returned by getPhi()) to radians
-        double phiDegrees = _coefficients[i][j].getPhi();
-        double phiRadians = phiDegrees * Math.PI / 180.0;
-        // Normalize to [-π, π] using IEEE remainder
-        double normalizedPhase = Math.IEEEremainder(phiRadians, 2 * Math.PI);
-        // Map π to -π for consistency with test expectations
-        if (Math.abs(normalizedPhase - Math.PI) < 1e-10) {
-          normalizedPhase = -Math.PI;
-        }
-        phase[i][j] = normalizedPhase;
+        // Use atan2 to get phase angle (returns [-π, π])
+        double real = _coefficients[i][j].getReal();
+        double imag = _coefficients[i][j].getImag();
+        double angle = Math.atan2(imag, real);
+        
+        // Normalize to (-π, π] by mapping π to -π
+        // This ensures unique angle representation and matches test expectations
+        phase[i][j] = (angle == Math.PI) ? -Math.PI : angle;
       }
     }
     
