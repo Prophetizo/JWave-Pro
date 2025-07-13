@@ -86,7 +86,7 @@ public class StreamingFFTTest {
         
         // Verify other bins are near zero
         for (int i = 0; i < magnitude.length; i++) {
-            if (i != peakBin && i != 256 - peakBin) { // Skip peak and its mirror
+            if (i != peakBin) { // Skip peak bin
                 assertTrue("Non-peak bins should be near zero", magnitude[i] < 1.0);
             }
         }
@@ -146,13 +146,6 @@ public class StreamingFFTTest {
             }
         }
         
-        // Debug output
-        System.out.println("Peak bin: " + peakBin);
-        System.out.println("Windowed leakage: " + leakageWindowed);
-        System.out.println("Unwindowed leakage: " + leakageUnwindowed);
-        System.out.println("Windowed max: " + maxWindowed);
-        System.out.println("Unwindowed max: " + maxUnwindowed);
-        
         // Windowing should significantly reduce spectral leakage
         assertTrue("Windowing should reduce spectral leakage (windowed: " + 
                   leakageWindowed + ", unwindowed: " + leakageUnwindowed + ")", 
@@ -174,17 +167,17 @@ public class StreamingFFTTest {
         // Add single non-zero sample
         fft.update(new double[]{1.0});
         
-        double[] spectrum = fft.getSpectrum();
+        double[] magnitude = fft.getMagnitudeSpectrum();
         
-        // Verify spectrum was updated
+        // Verify spectrum was updated - at least one bin should have non-zero magnitude
         boolean hasNonZero = false;
-        for (double val : spectrum) {
-            if (Math.abs(val) > DELTA) {
+        for (double mag : magnitude) {
+            if (mag > DELTA) {
                 hasNonZero = true;
                 break;
             }
         }
-        assertTrue("Spectrum should have non-zero values after update", hasNonZero);
+        assertTrue("Spectrum should have non-zero magnitudes after update", hasNonZero);
     }
     
     @Test
