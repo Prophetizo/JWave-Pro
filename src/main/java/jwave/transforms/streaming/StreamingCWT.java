@@ -480,9 +480,9 @@ public class StreamingCWT extends AbstractStreamingTransform<CWTResult> {
         try {
             // Create deep copy of coefficients to prevent external modification
             Complex[][] coeffCopy = new Complex[numScales][bufferSize];
-            for (int i = 0; i < numScales; i++) {
-                for (int j = 0; j < bufferSize; j++) {
-                    if (i < coefficients.length && j < coefficients[i].length && coefficients[i][j] != null) {
+            for (int i = 0; i < numScales && i < coefficients.length; i++) {
+                for (int j = 0; j < bufferSize && j < coefficients[i].length; j++) {
+                    if (coefficients[i][j] != null) {
                         coeffCopy[i][j] = new Complex(
                             coefficients[i][j].getReal(),
                             coefficients[i][j].getImag()
@@ -490,6 +490,16 @@ public class StreamingCWT extends AbstractStreamingTransform<CWTResult> {
                     } else {
                         coeffCopy[i][j] = new Complex(0, 0);
                     }
+                }
+                // Fill remaining with zeros if needed
+                for (int j = coefficients[i].length; j < bufferSize; j++) {
+                    coeffCopy[i][j] = new Complex(0, 0);
+                }
+            }
+            // Fill remaining scales with zeros if needed
+            for (int i = coefficients.length; i < numScales; i++) {
+                for (int j = 0; j < bufferSize; j++) {
+                    coeffCopy[i][j] = new Complex(0, 0);
                 }
             }
             

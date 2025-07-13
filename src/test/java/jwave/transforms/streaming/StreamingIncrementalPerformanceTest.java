@@ -14,6 +14,8 @@ import org.junit.Test;
 import org.junit.Ignore;
 import static org.junit.Assert.*;
 import static org.junit.Assume.*;
+import java.util.logging.Logger;
+import java.util.logging.Level;
 
 /**
  * Performance comparison test for incremental updates across streaming transforms.
@@ -28,9 +30,15 @@ import static org.junit.Assume.*;
  */
 public class StreamingIncrementalPerformanceTest {
     
+    private static final Logger LOGGER = Logger.getLogger(StreamingIncrementalPerformanceTest.class.getName());
+    
     private static final int INITIAL_SIGNAL_SIZE = 512;
     private static final int SINGLE_SAMPLE_UPDATES = 100;
     private static final int WARM_UP_ITERATIONS = 50;
+    
+    // Performance thresholds for assertions
+    private static final double MIN_MODWT_SPEEDUP = 1.3;  // Expect at least 30% improvement
+    private static final double MAX_OVERHEAD_RATIO = 1.1;  // Allow up to 10% overhead for "no improvement" cases
     
     @Test
     public void testIncrementalPerformanceComparison() {
@@ -38,27 +46,33 @@ public class StreamingIncrementalPerformanceTest {
         assumeTrue("Performance tests not enabled", 
                   Boolean.getBoolean("enablePerformanceTests"));
         
-        System.out.println("\nStreaming Transform Incremental Performance Analysis");
-        System.out.println("===================================================");
-        System.out.println("Scenario: Initial signal of 512 samples, then 100 single-sample updates");
-        System.out.println();
+        LOGGER.log(Level.INFO, "Running incremental performance analysis with {0} samples and {1} updates", 
+                   new Object[]{INITIAL_SIGNAL_SIZE, SINGLE_SAMPLE_UPDATES});
         
         // Test StreamingMODWT (has true incremental updates)
-        testMODWTPerformance();
+        double modwtSpeedup = testMODWTPerformance();
+        assertTrue("StreamingMODWT should show significant speedup with incremental updates", 
+                   modwtSpeedup >= MIN_MODWT_SPEEDUP);
         
         // Test StreamingFWT (falls back to full recomputation)
-        testFWTPerformance();
+        double fwtSpeedup = testFWTPerformance();
+        assertTrue("StreamingFWT incremental should not have significant overhead", 
+                   fwtSpeedup >= 1.0 / MAX_OVERHEAD_RATIO && fwtSpeedup <= MAX_OVERHEAD_RATIO);
         
         // Test StreamingWPT (falls back to full recomputation)
-        testWPTPerformance();
+        double wptSpeedup = testWPTPerformance();
+        assertTrue("StreamingWPT incremental should not have significant overhead", 
+                   wptSpeedup >= 1.0 / MAX_OVERHEAD_RATIO && wptSpeedup <= MAX_OVERHEAD_RATIO);
         
-        // Test StreamingCWT (falls back to full recomputation)
-        testCWTPerformance();
+        // Test StreamingCWT (with incremental updates)
+        double cwtSpeedup = testCWTPerformance();
+        // CWT incremental updates have minimal benefit due to edge effects
+        assertTrue("StreamingCWT incremental should not have significant overhead", 
+                   cwtSpeedup >= 0.9);  // Allow up to 10% slower due to overhead
     }
     
-    private void testMODWTPerformance() {
-        System.out.println("StreamingMODWT (TRUE incremental implementation):");
-        System.out.println("-------------------------------------------------");
+    private double testMODWTPerformance() {
+        LOGGER.log(Level.FINE, "Testing StreamingMODWT incremental performance");
         
         // Test with FULL strategy
         StreamingTransformConfig fullConfig = StreamingTransformConfig.builder()
@@ -116,20 +130,17 @@ public class StreamingIncrementalPerformanceTest {
         // Calculate speedup
         double speedup = fullAvgUpdate / incAvgUpdate;
         
-        System.out.printf("Initial load (512 samples):\n");
-        System.out.printf("  FULL:        %.3f ms\n", fullInitTime);
-        System.out.printf("  INCREMENTAL: %.3f ms (same as FULL for initial load)\n", incInitTime);
-        System.out.printf("\nSingle sample updates (average of %d updates):\n", SINGLE_SAMPLE_UPDATES);
-        System.out.printf("  FULL:        %.3f ms per update\n", fullAvgUpdate);
-        System.out.printf("  INCREMENTAL: %.3f ms per update\n", incAvgUpdate);
-        System.out.printf("  Speedup:     %.2fx faster\n", speedup);
-        System.out.printf("  Time saved:  %.3f ms per update\n", fullAvgUpdate - incAvgUpdate);
-        System.out.println();
+        LOGGER.log(Level.FINE, "MODWT Initial load - FULL: {0}ms, INCREMENTAL: {1}ms", 
+                   new Object[]{String.format("%.3f", fullInitTime), String.format("%.3f", incInitTime)});
+        LOGGER.log(Level.FINE, "MODWT Updates - FULL: {0}ms/update, INCREMENTAL: {1}ms/update, Speedup: {2}x", 
+                   new Object[]{String.format("%.3f", fullAvgUpdate), String.format("%.3f", incAvgUpdate), 
+                               String.format("%.2f", speedup)});
+        
+        return speedup;
     }
     
-    private void testFWTPerformance() {
-        System.out.println("StreamingFWT (incremental falls back to FULL):");
-        System.out.println("----------------------------------------------");
+    private double testFWTPerformance() {
+        LOGGER.log(Level.FINE, "Testing StreamingFWT incremental performance");
         
         // Test with FULL strategy
         StreamingTransformConfig fullConfig = StreamingTransformConfig.builder()
@@ -177,16 +188,17 @@ public class StreamingIncrementalPerformanceTest {
         long incUpdateEnd = System.nanoTime();
         double incAvgUpdate = (incUpdateEnd - incUpdateStart) / (1e6 * SINGLE_SAMPLE_UPDATES);
         
-        System.out.printf("Single sample updates (average of %d updates):\n", SINGLE_SAMPLE_UPDATES);
-        System.out.printf("  FULL:        %.3f ms per update\n", fullAvgUpdate);
-        System.out.printf("  INCREMENTAL: %.3f ms per update (same as FULL)\n", incAvgUpdate);
-        System.out.println("  Speedup:     1.00x (no improvement - falls back to FULL)");
-        System.out.println();
+        double speedup = fullAvgUpdate / incAvgUpdate;
+        
+        LOGGER.log(Level.FINE, "FWT Updates - FULL: {0}ms/update, INCREMENTAL: {1}ms/update, Speedup: {2}x", 
+                   new Object[]{String.format("%.3f", fullAvgUpdate), String.format("%.3f", incAvgUpdate), 
+                               String.format("%.2f", speedup)});
+        
+        return speedup;
     }
     
-    private void testWPTPerformance() {
-        System.out.println("StreamingWPT (incremental falls back to FULL):");
-        System.out.println("----------------------------------------------");
+    private double testWPTPerformance() {
+        LOGGER.log(Level.FINE, "Testing StreamingWPT incremental performance");
         
         // Test with FULL strategy
         StreamingTransformConfig fullConfig = StreamingTransformConfig.builder()
@@ -234,16 +246,17 @@ public class StreamingIncrementalPerformanceTest {
         long incUpdateEnd = System.nanoTime();
         double incAvgUpdate = (incUpdateEnd - incUpdateStart) / (1e6 * SINGLE_SAMPLE_UPDATES);
         
-        System.out.printf("Single sample updates (average of %d updates):\n", SINGLE_SAMPLE_UPDATES);
-        System.out.printf("  FULL:        %.3f ms per update\n", fullAvgUpdate);
-        System.out.printf("  INCREMENTAL: %.3f ms per update (same as FULL)\n", incAvgUpdate);
-        System.out.println("  Speedup:     1.00x (no improvement - falls back to FULL)");
-        System.out.println();
+        double speedup = fullAvgUpdate / incAvgUpdate;
+        
+        LOGGER.log(Level.FINE, "FWT Updates - FULL: {0}ms/update, INCREMENTAL: {1}ms/update, Speedup: {2}x", 
+                   new Object[]{String.format("%.3f", fullAvgUpdate), String.format("%.3f", incAvgUpdate), 
+                               String.format("%.2f", speedup)});
+        
+        return speedup;
     }
     
-    private void testCWTPerformance() {
-        System.out.println("StreamingCWT (with incremental updates):");
-        System.out.println("----------------------------------------");
+    private double testCWTPerformance() {
+        LOGGER.log(Level.FINE, "Testing StreamingCWT incremental performance");
         
         // Test with FULL strategy
         StreamingTransformConfig fullConfig = StreamingTransformConfig.builder()
@@ -292,16 +305,11 @@ public class StreamingIncrementalPerformanceTest {
         // Calculate speedup
         double speedup = fullAvgUpdate / incAvgUpdate;
         
-        System.out.printf("Single sample updates (average of %d updates):\n", SINGLE_SAMPLE_UPDATES);
-        System.out.printf("  FULL:        %.3f ms per update\n", fullAvgUpdate);
-        System.out.printf("  INCREMENTAL: %.3f ms per update\n", incAvgUpdate);
-        System.out.printf("  Speedup:     %.2fx\n", speedup);
-        if (speedup > 1.1) {
-            System.out.printf("  Time saved:  %.3f ms per update\n", fullAvgUpdate - incAvgUpdate);
-        } else {
-            System.out.println("  Note: Minimal improvement due to edge effect overhead");
-        }
-        System.out.println();
+        LOGGER.log(Level.FINE, "CWT Updates - FULL: {0}ms/update, INCREMENTAL: {1}ms/update, Speedup: {2}x", 
+                   new Object[]{String.format("%.3f", fullAvgUpdate), String.format("%.3f", incAvgUpdate), 
+                               String.format("%.2f", speedup)});
+        
+        return speedup;
     }
     
     @Test
@@ -309,9 +317,7 @@ public class StreamingIncrementalPerformanceTest {
         assumeTrue("Performance tests not enabled", 
                   Boolean.getBoolean("enablePerformanceTests"));
         
-        System.out.println("\nLAZY Strategy Performance Analysis");
-        System.out.println("==================================");
-        System.out.println("Comparing LAZY vs FULL for scenarios with infrequent coefficient access\n");
+        LOGGER.log(Level.INFO, "Testing LAZY strategy performance with infrequent coefficient access");
         
         // Test scenario: 10 updates followed by 1 coefficient access
         int updatesPerAccess = 10;
@@ -366,15 +372,16 @@ public class StreamingIncrementalPerformanceTest {
         
         double lazySavings = ((fullTotalTime - lazyTotalTime) / fullTotalTime) * 100;
         
-        System.out.println("StreamingMODWT LAZY Strategy Performance:");
-        System.out.println("-----------------------------------------");
-        System.out.printf("Scenario: %d updates followed by 1 coefficient access, repeated %d times\n", 
-                         updatesPerAccess, totalCycles);
-        System.out.printf("FULL strategy total time:  %.3f ms\n", fullTotalTime);
-        System.out.printf("LAZY strategy total time:  %.3f ms\n", lazyTotalTime);
-        System.out.printf("Time saved with LAZY:      %.1f%%\n", lazySavings);
-        System.out.println("\nNote: LAZY strategy is beneficial when coefficient access is less frequent");
-        System.out.println("      than updates, avoiding unnecessary computations.");
+        LOGGER.log(Level.FINE, "LAZY Strategy - Updates per access: {0}, Total cycles: {1}", 
+                   new Object[]{updatesPerAccess, totalCycles});
+        LOGGER.log(Level.FINE, "LAZY Strategy Results - FULL: {0}ms, LAZY: {1}ms, Savings: {2}%", 
+                   new Object[]{String.format("%.3f", fullTotalTime), 
+                               String.format("%.3f", lazyTotalTime),
+                               String.format("%.1f", lazySavings)});
+        
+        // Assert that LAZY strategy provides measurable benefit
+        assertTrue("LAZY strategy should provide time savings for infrequent access patterns", 
+                   lazySavings > 10.0);  // Expect at least 10% savings
     }
     
     private double[] generateSignal(int length) {
