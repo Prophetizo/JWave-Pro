@@ -151,8 +151,9 @@ public class StreamingWPT extends AbstractStreamingTransform<double[]> {
             case LAZY:
                 // Just mark coefficients as dirty, don't compute yet
                 coefficientsDirty = true;
-                // Return current (possibly stale) coefficients
-                return currentCoefficients != null ? currentCoefficients : 
+                // Return current (possibly stale) coefficients (copy to prevent modification)
+                return currentCoefficients != null ? 
+                       Arrays.copyOf(currentCoefficients, currentCoefficients.length) : 
                        new double[effectiveBufferSize];
                        
             default:
@@ -184,7 +185,8 @@ public class StreamingWPT extends AbstractStreamingTransform<double[]> {
         currentCoefficients = computeTransform(transformData);
         coefficientsDirty = false;
         
-        return currentCoefficients;
+        // Return a copy to prevent external modification
+        return Arrays.copyOf(currentCoefficients, currentCoefficients.length);
     }
     
     /**
@@ -226,8 +228,8 @@ public class StreamingWPT extends AbstractStreamingTransform<double[]> {
             return recomputeCoefficients();
         }
         
-        // No new samples, return existing coefficients
-        return currentCoefficients;
+        // No new samples, return existing coefficients (copy to prevent modification)
+        return Arrays.copyOf(currentCoefficients, currentCoefficients.length);
     }
     
     @Override
@@ -342,10 +344,14 @@ public class StreamingWPT extends AbstractStreamingTransform<double[]> {
             );
         }
         
+        // Get coefficients once to avoid repeated computation/copying
+        double[] coeffs = getCachedCoefficients();
+        
         double[][] path = new double[maxLevel + 1][];
         
-        // Start at root (level 0)
-        path[0] = getPacket(0, 0);
+        // Start at root (level 0) - always the full signal
+        path[0] = new double[effectiveBufferSize];
+        System.arraycopy(coeffs, 0, path[0], 0, effectiveBufferSize);
         
         // Traverse down the tree based on time location
         int currentIndex = timeIndex;
@@ -354,8 +360,11 @@ public class StreamingWPT extends AbstractStreamingTransform<double[]> {
             // At each level, determine which packet contains this time index
             int packetSize = packetSizes[level];
             int packetIndex = currentIndex / packetSize;
+            int packetOffset = packetIndex * packetSize;
             
-            path[level] = getPacket(level, packetIndex);
+            // Extract the packet directly from coefficients
+            path[level] = new double[packetSize];
+            System.arraycopy(coeffs, packetOffset, path[level], 0, packetSize);
             
             // Update index relative to the current packet
             currentIndex %= packetSize;

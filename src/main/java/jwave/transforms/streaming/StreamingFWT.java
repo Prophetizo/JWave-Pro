@@ -126,8 +126,9 @@ public class StreamingFWT extends AbstractStreamingTransform<double[]> {
             case LAZY:
                 // Just mark coefficients as dirty, don't compute yet
                 coefficientsDirty = true;
-                // Return current (possibly stale) coefficients
-                return currentCoefficients != null ? currentCoefficients : 
+                // Return current (possibly stale) coefficients (copy to prevent modification)
+                return currentCoefficients != null ? 
+                       Arrays.copyOf(currentCoefficients, currentCoefficients.length) : 
                        new double[effectiveBufferSize];
                        
             default:
@@ -159,7 +160,8 @@ public class StreamingFWT extends AbstractStreamingTransform<double[]> {
         currentCoefficients = computeTransform(transformData);
         coefficientsDirty = false;
         
-        return currentCoefficients;
+        // Return a copy to prevent external modification
+        return Arrays.copyOf(currentCoefficients, currentCoefficients.length);
     }
     
     /**
@@ -200,8 +202,8 @@ public class StreamingFWT extends AbstractStreamingTransform<double[]> {
             return recomputeCoefficients();
         }
         
-        // No new samples, return existing coefficients
-        return currentCoefficients;
+        // No new samples, return existing coefficients (copy to prevent modification)
+        return Arrays.copyOf(currentCoefficients, currentCoefficients.length);
     }
     
     
