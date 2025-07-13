@@ -106,8 +106,9 @@ public class StreamingIncrementalPerformanceTest {
         ContinuousWavelet cwTestWavelet = new MorletWavelet();
         double cwtSpeedup = testCWTPerformance(cwTestWavelet);
         // CWT incremental updates have minimal benefit due to edge effects
+        // Allow for some overhead but ensure it's not excessive
         assertTrue("StreamingCWT incremental should not have significant overhead", 
-                   cwtSpeedup >= 0.9);  // Allow up to 10% slower due to overhead
+                   cwtSpeedup >= 0.9 && cwtSpeedup <= MAX_OVERHEAD_RATIO);
     }
     
     @Test

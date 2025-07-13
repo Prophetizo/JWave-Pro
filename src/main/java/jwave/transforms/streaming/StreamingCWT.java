@@ -425,6 +425,10 @@ public class StreamingCWT extends AbstractStreamingTransform<CWTResult> {
      * beginning of the buffer may need updating if their support window extends
      * to include the new samples (due to circular buffer wraparound).
      * 
+     * For example, if buffer has 100 samples and new samples start at index 95,
+     * and supportRadius is 10, then coefficients at indices 0-4 need updating
+     * because their support windows extend into the new samples via wraparound.
+     * 
      * @param scaleIdx Scale index
      * @param scale Scale value
      * @param supportRadius Support radius for this scale
@@ -435,17 +439,21 @@ public class StreamingCWT extends AbstractStreamingTransform<CWTResult> {
     private void updateEdgeCoefficients(int scaleIdx, double scale, int supportRadius,
                                       int newSampleStartIdx, double[] bufferData,
                                       double[] support) {
-        // Check if we need to update coefficients at the beginning of the buffer
-        // This happens when the support radius extends beyond the new sample start
-        if (supportRadius > newSampleStartIdx) {
-            // The main update range starts at max(0, newSampleStartIdx - supportRadius)
-            // We need to update coefficients before this point that are affected by wraparound
-            int mainRangeStart = Math.max(0, newSampleStartIdx - supportRadius);
+        // Check if wraparound affects coefficients at the beginning of the buffer
+        // This happens when the support window of early coefficients extends past
+        // the end of the buffer and wraps around to include new samples
+        if (buffer.hasWrapped() && supportRadius > 0) {
+            // Calculate how many samples at the end of the buffer are "new"
+            int newSamplesAtEnd = bufferSize - newSampleStartIdx;
             
-            // Update coefficients from index 0 up to (but not including) mainRangeStart
-            // These are the edge coefficients affected by circular buffer wraparound
-            if (mainRangeStart > 0) {
-                updateCoefficientRange(scaleIdx, scale, 0, mainRangeStart - 1, bufferData, support);
+            // Coefficients at the beginning whose support extends into the wrapped region
+            // need to be updated. The support window extends supportRadius samples
+            // in each direction from the coefficient's time index.
+            int edgeUpdateCount = Math.min(supportRadius, newSamplesAtEnd);
+            
+            if (edgeUpdateCount > 0) {
+                // Update coefficients from index 0 to edgeUpdateCount-1
+                updateCoefficientRange(scaleIdx, scale, 0, edgeUpdateCount - 1, bufferData, support);
             }
         }
     }
@@ -512,27 +520,17 @@ public class StreamingCWT extends AbstractStreamingTransform<CWTResult> {
             
             // Copy existing coefficients
             for (int i = 0; i < numScales; i++) {
-                if (i < coefficients.length && coefficients[i] != null) {
-                    // Use System.arraycopy for the initial copy of references
-                    int copyLength = Math.min(bufferSize, coefficients[i].length);
-                    System.arraycopy(coefficients[i], 0, coeffCopy[i], 0, copyLength);
-                    
-                    // Now create defensive copies and handle nulls/padding
-                    for (int j = 0; j < bufferSize; j++) {
-                        if (j < copyLength && coeffCopy[i][j] != null) {
-                            // Create defensive copy since Complex is mutable
-                            coeffCopy[i][j] = new Complex(
-                                coeffCopy[i][j].getReal(),
-                                coeffCopy[i][j].getImag()
-                            );
-                        } else {
-                            // Fill with zero
-                            coeffCopy[i][j] = new Complex(0, 0);
-                        }
-                    }
-                } else {
-                    // Fill entire row with zeros
-                    for (int j = 0; j < bufferSize; j++) {
+                for (int j = 0; j < bufferSize; j++) {
+                    // Check if we have a valid coefficient to copy
+                    if (i < coefficients.length && coefficients[i] != null && 
+                        j < coefficients[i].length && coefficients[i][j] != null) {
+                        // Create defensive copy since Complex is mutable
+                        coeffCopy[i][j] = new Complex(
+                            coefficients[i][j].getReal(),
+                            coefficients[i][j].getImag()
+                        );
+                    } else {
+                        // Fill with zero
                         coeffCopy[i][j] = new Complex(0, 0);
                     }
                 }
