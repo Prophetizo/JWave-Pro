@@ -193,8 +193,10 @@ public class StreamingFWT extends AbstractStreamingTransform<double[]> {
         
         // If we have new samples, the buffer has changed
         if (newSamples.length > 0) {
-            // TODO: Implement true incremental FWT update
-            // Currently falls back to full recomputation
+            // NOTE: Incremental FWT updates are not implemented due to complexity.
+            // The recursive nature and cascading dependencies make the performance
+            // gains minimal compared to the implementation cost.
+            // Consider using LAZY strategy for better performance.
             return recomputeCoefficients();
         }
         

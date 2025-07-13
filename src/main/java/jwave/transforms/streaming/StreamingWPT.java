@@ -219,8 +219,10 @@ public class StreamingWPT extends AbstractStreamingTransform<double[]> {
         
         // If we have new samples, the buffer has changed
         if (newSamples.length > 0) {
-            // TODO: Implement true incremental WPT update
-            // Currently falls back to full recomputation
+            // NOTE: Incremental WPT updates are not implemented due to complexity.
+            // The full binary tree structure means most packets need updating anyway,
+            // making the performance gains minimal compared to the implementation cost.
+            // Consider using LAZY strategy or parallel processing for better performance.
             return recomputeCoefficients();
         }
         
