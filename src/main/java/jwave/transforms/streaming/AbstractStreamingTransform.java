@@ -8,6 +8,7 @@
 package jwave.transforms.streaming;
 
 import jwave.transforms.BasicTransform;
+import jwave.datatypes.natives.Complex;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
@@ -232,6 +233,111 @@ public abstract class AbstractStreamingTransform<T> implements StreamingTransfor
      * Called by reset() to clear coefficient caches and other state.
      */
     protected abstract void resetTransformState();
+    
+    /**
+     * Threshold ratios for switching from incremental to full recomputation.
+     * When update size exceeds this ratio of buffer size, full computation is more efficient.
+     */
+    protected static final double FFT_INCREMENTAL_THRESHOLD_RATIO = 0.25;  // 1/4
+    protected static final double DFT_INCREMENTAL_THRESHOLD_RATIO = 0.125; // 1/8
+    
+    /**
+     * Calculate the incremental update threshold for a given transform size and algorithm.
+     * 
+     * @param transformSize Size of the transform (FFT or DFT size)
+     * @param thresholdRatio The ratio to use (FFT_INCREMENTAL_THRESHOLD_RATIO or DFT_INCREMENTAL_THRESHOLD_RATIO)
+     * @return Minimum number of samples that triggers full recomputation (at least 1)
+     */
+    protected static int calculateIncrementalThreshold(int transformSize, double thresholdRatio) {
+        return Math.max(1, (int)(transformSize * thresholdRatio));
+    }
+    
+    /**
+     * Update DFT coefficients using sliding DFT algorithm.
+     * This method encapsulates the common sliding DFT update logic shared
+     * between FFT and DFT implementations.
+     * 
+     * WARNING: This method allocates a new Complex object for each frequency bin
+     * on every update, which can cause significant GC pressure in real-time
+     * applications. For better performance, use updateSlidingDFTCoefficientsInPlace
+     * instead, which operates on primitive arrays without allocations.
+     * 
+     * @deprecated Use {@link #updateSlidingDFTCoefficientsInPlace} for better performance
+     * @param dftCoefficients Array of current DFT coefficients to update
+     * @param twiddleFactors Pre-computed twiddle factors for the transform
+     * @param removedValue Value of the sample being removed from the sliding window
+     * @param newSample Value of the new sample being added to the sliding window
+     * @param transformSize Size of the transform (FFT size or DFT size)
+     */
+    @Deprecated
+    protected static void updateSlidingDFTCoefficients(
+            Complex[] dftCoefficients,
+            Complex[] twiddleFactors,
+            double removedValue,
+            double newSample,
+            int transformSize) {
+        
+        // Pre-calculate the sample difference to avoid repeated subtraction
+        double sampleDiff = newSample - removedValue;
+        
+        // Update each frequency bin using sliding DFT algorithm
+        for (int k = 0; k < transformSize; k++) {
+            // Get current coefficient components
+            double coeffReal = dftCoefficients[k].getReal();
+            double coeffImag = dftCoefficients[k].getImag();
+            
+            // Update: (coeff + sampleDiff) * twiddle
+            double updatedReal = coeffReal + sampleDiff;
+            
+            // Get twiddle factor components  
+            double twiddleReal = twiddleFactors[k].getReal();
+            double twiddleImag = twiddleFactors[k].getImag();
+            
+            // Compute final values: (updatedReal + j*coeffImag) * (twiddleReal + j*twiddleImag)
+            double newReal = updatedReal * twiddleReal - coeffImag * twiddleImag;
+            double newImag = updatedReal * twiddleImag + coeffImag * twiddleReal;
+            
+            // Create new coefficient (only one allocation per coefficient)
+            dftCoefficients[k] = new Complex(newReal, newImag);
+        }
+    }
+    
+    /**
+     * Alternative sliding DFT update using separate real/imaginary arrays.
+     * This version avoids Complex object allocations entirely, making it
+     * more suitable for real-time applications.
+     * 
+     * @param coefficientsReal Real parts of DFT coefficients
+     * @param coefficientsImag Imaginary parts of DFT coefficients
+     * @param twiddleReal Real parts of twiddle factors
+     * @param twiddleImag Imaginary parts of twiddle factors
+     * @param removedValue Value being removed from the window
+     * @param newSample Value being added to the window
+     * @param transformSize Size of the transform
+     */
+    protected static void updateSlidingDFTCoefficientsInPlace(
+            double[] coefficientsReal,
+            double[] coefficientsImag,
+            double[] twiddleReal,
+            double[] twiddleImag,
+            double removedValue,
+            double newSample,
+            int transformSize) {
+        
+        // Pre-calculate the sample difference
+        double sampleDiff = newSample - removedValue;
+        
+        // Update each frequency bin
+        for (int k = 0; k < transformSize; k++) {
+            // Update real part with sample difference
+            double updatedReal = coefficientsReal[k] + sampleDiff;
+            double currentImag = coefficientsImag[k];
+            
+            // Apply twiddle factor rotation
+            coefficientsReal[k] = updatedReal * twiddleReal[k] - currentImag * twiddleImag[k];
+            coefficientsImag[k] = updatedReal * twiddleImag[k] + currentImag * twiddleReal[k];
+        }
+    }
     
     /**
      * Add a listener for transform events.

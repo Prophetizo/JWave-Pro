@@ -7,44 +7,55 @@
  */
 package jwave.transforms.streaming;
 
-import jwave.transforms.FastFourierTransform;
-import jwave.utils.MathUtils;
+import jwave.transforms.GeneralDiscreteFourierTransform;
 import java.util.Arrays;
 import java.util.Objects;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 /**
- * Streaming implementation of the Fast Fourier Transform (FFT).
+ * Streaming implementation of the Discrete Fourier Transform (DFT).
  * 
  * This class provides streaming capabilities for frequency analysis using
- * sliding DFT for incremental updates and overlap-save method for efficient
- * processing of continuous data streams.
+ * the sliding DFT algorithm for incremental updates. Unlike StreamingFFT,
+ * this implementation supports arbitrary buffer sizes, not just powers of 2.
  * 
  * Key features:
  * - Sliding DFT for single-sample updates (O(N) complexity)
- * - Overlap-save method for batch processing
- * - Power-of-2 buffer sizes for optimal FFT performance
+ * - Supports arbitrary buffer sizes (no power-of-2 restriction)
  * - Real-time spectral analysis
  * - Thread-safe coefficient access
+ * - Optional windowing support
+ * 
+ * Update strategies:
+ * - FULL: Always recompute the entire DFT immediately
+ * - INCREMENTAL: Use sliding DFT for small updates, full DFT for large updates
+ * - LAZY: Mark spectrum as dirty but return stale data; actual computation
+ *         happens when spectrum properties are accessed (getMagnitudeSpectrum, etc.)
  * 
  * The sliding DFT algorithm allows efficient updates when individual samples
- * are added to the buffer, avoiding full FFT recomputation. For larger
- * updates, the implementation falls back to standard FFT computation.
+ * are added to the buffer, avoiding full DFT recomputation. For larger
+ * updates, the implementation falls back to standard DFT computation.
+ * 
+ * Trade-offs compared to StreamingFFT:
+ * - Supports any buffer size (more flexible)
+ * - Full DFT computation is O(N²) instead of O(N log N)
+ * - Single-sample updates remain O(N) for both
  * 
  * @author Prophetizo
  * @date 2025-07-13
  */
-public class StreamingFFT extends AbstractStreamingTransform<double[]> {
+public class StreamingDFT extends AbstractStreamingTransform<double[]> {
     
-    private final FastFourierTransform fft;
+    // Note: Threshold ratio is now defined in AbstractStreamingTransform
+    
+    private final GeneralDiscreteFourierTransform dft;
     private final StreamingTransformConfig config;
     
-    // FFT parameters
-    private int fftSize;
-    private int halfSize;
+    // DFT parameters
+    private int dftSize;
     
-    // Current FFT coefficients (complex interleaved format)
+    // Current DFT coefficients (complex interleaved format)
     private double[] spectrum;
     private boolean spectrumDirty = false;
     
@@ -62,29 +73,29 @@ public class StreamingFFT extends AbstractStreamingTransform<double[]> {
     private double[] twiddleFactorsImag;
     
     /**
-     * Create a new streaming FFT transform.
+     * Create a new streaming DFT transform.
      * 
      * @param config The streaming configuration
      */
-    public StreamingFFT(StreamingTransformConfig config) {
-        super(new FastFourierTransform());
+    public StreamingDFT(StreamingTransformConfig config) {
+        super(new GeneralDiscreteFourierTransform());
         
         this.config = Objects.requireNonNull(config, "Configuration cannot be null");
-        this.fft = (FastFourierTransform) transform;
+        this.dft = (GeneralDiscreteFourierTransform) transform;
         
         // Initialize with config values
-        initialize(config.getBufferSize(), 0); // maxLevel not used for FFT
+        initialize(config.getBufferSize(), 0); // maxLevel not used for DFT
     }
     
     /**
      * Enable or disable windowing.
-     * When enabled, a Hamming window is applied before FFT computation.
+     * When enabled, a Hamming window is applied before DFT computation.
      * 
      * @param useWindow Whether to use windowing
      */
     public void setUseWindow(boolean useWindow) {
         this.useWindow = useWindow;
-        if (useWindow && window == null && fftSize > 0) {
+        if (useWindow && window == null && dftSize > 0) {
             initializeWindow();
         } else if (!useWindow) {
             // Clear window array to free memory when windowing is disabled
@@ -113,26 +124,21 @@ public class StreamingFFT extends AbstractStreamingTransform<double[]> {
         if (bufferSize <= 0) {
             throw new IllegalArgumentException("Buffer size must be positive");
         }
-        // For optimal FFT performance, buffer size should be power of 2
-        if (!MathUtils.isPowerOfTwo(bufferSize)) {
-            throw new IllegalArgumentException(
-                "Buffer size must be a power of 2 for StreamingFFT. Got: " + bufferSize
-            );
-        }
+        // DFT can handle any buffer size (no power-of-2 restriction)
     }
     
     @Override
     protected void initializeTransformState() {
-        // Set FFT size to buffer size
-        fftSize = bufferSize;
-        halfSize = fftSize / 2;
+        // Set DFT size to buffer size
+        dftSize = bufferSize;
         
         // Initialize spectrum storage (complex interleaved format)
-        spectrum = new double[fftSize * 2];
+        spectrum = new double[dftSize * 2];
+        spectrumDirty = true;  // Mark as dirty so it gets computed on first access
         
         // Initialize sliding DFT state with primitive arrays
-        dftCoefficientsReal = new double[fftSize];
-        dftCoefficientsImag = new double[fftSize];
+        dftCoefficientsReal = new double[dftSize];
+        dftCoefficientsImag = new double[dftSize];
         // Arrays are already initialized to 0.0 by Java
         
         // Pre-compute twiddle factors for sliding DFT
@@ -148,11 +154,11 @@ public class StreamingFFT extends AbstractStreamingTransform<double[]> {
      * Initialize twiddle factors for sliding DFT algorithm.
      */
     private void initializeTwiddleFactors() {
-        twiddleFactorsReal = new double[fftSize];
-        twiddleFactorsImag = new double[fftSize];
-        double angleIncrement = -2.0 * Math.PI / fftSize;
+        twiddleFactorsReal = new double[dftSize];
+        twiddleFactorsImag = new double[dftSize];
+        double angleIncrement = -2.0 * Math.PI / dftSize;
         
-        for (int k = 0; k < fftSize; k++) {
+        for (int k = 0; k < dftSize; k++) {
             double angle = angleIncrement * k;
             twiddleFactorsReal[k] = Math.cos(angle);
             twiddleFactorsImag[k] = Math.sin(angle);
@@ -163,9 +169,9 @@ public class StreamingFFT extends AbstractStreamingTransform<double[]> {
      * Initialize Hamming window.
      */
     private void initializeWindow() {
-        window = new double[fftSize];
-        for (int i = 0; i < fftSize; i++) {
-            window[i] = 0.54 - 0.46 * Math.cos(2 * Math.PI * i / (fftSize - 1));
+        window = new double[dftSize];
+        for (int i = 0; i < dftSize; i++) {
+            window[i] = 0.54 - 0.46 * Math.cos(2 * Math.PI * i / (dftSize - 1));
         }
     }
     
@@ -178,7 +184,7 @@ public class StreamingFFT extends AbstractStreamingTransform<double[]> {
     private double[] applyWindow(double[] signal) {
         if (!useWindow || window == null) {
             // No windowing needed, return original array
-            // This is safe because FFT.forward() doesn't modify its input
+            // This is safe because DFT.forward() doesn't modify its input
             return signal;
         }
         
@@ -193,8 +199,8 @@ public class StreamingFFT extends AbstractStreamingTransform<double[]> {
     protected double[] performUpdate(double[] newSamples) {
         switch (config.getUpdateStrategy()) {
             case FULL:
-                // Always recompute full FFT immediately
-                return recomputeFFT();
+                // Always recompute full DFT immediately
+                return recomputeDFT();
                 
             case INCREMENTAL:
                 // Use sliding DFT for single-sample updates
@@ -205,11 +211,12 @@ public class StreamingFFT extends AbstractStreamingTransform<double[]> {
                 spectrumLock.writeLock().lock();
                 try {
                     spectrumDirty = true;
+                    // Return the current (potentially stale) spectrum without triggering recomputation
+                    // This is the expected behavior for LAZY mode
+                    return Arrays.copyOf(spectrum, spectrum.length);
                 } finally {
                     spectrumLock.writeLock().unlock();
                 }
-                // Return current spectrum
-                return getSpectrum();
                 
             default:
                 throw new IllegalStateException("Unknown update strategy: " + config.getUpdateStrategy());
@@ -217,42 +224,65 @@ public class StreamingFFT extends AbstractStreamingTransform<double[]> {
     }
     
     /**
-     * Recompute full FFT from current buffer state.
+     * Recompute full DFT from current buffer state.
+     * This method handles proper locking and delegates to the actual computation.
      */
-    private double[] recomputeFFT() {
-        double[] bufferData = buffer.toArray();
-        
-        // Apply window if enabled
-        double[] processedData = applyWindow(bufferData);
-        
-        // Compute FFT
-        double[] newSpectrum;
-        try {
-            newSpectrum = fft.forward(processedData);
-        } catch (jwave.exceptions.JWaveException e) {
-            throw new RuntimeException("FFT computation failed", e);
-        }
-        
-        // Update internal state
+    private double[] recomputeDFT() {
         spectrumLock.writeLock().lock();
         try {
-            spectrum = newSpectrum;
-            spectrumDirty = false;
-            
-            // Update DFT coefficients for future sliding updates
-            for (int k = 0; k < fftSize; k++) {
-                dftCoefficientsReal[k] = spectrum[2 * k];
-                dftCoefficientsImag[k] = spectrum[2 * k + 1];
+            // Double-check pattern - another thread may have already recomputed
+            if (!spectrumDirty) {
+                // Another thread already recomputed, just return the spectrum
+                return spectrum;
             }
+            
+            // Perform the actual DFT computation
+            performDFTComputation();
+            
+            return spectrum;
         } finally {
             spectrumLock.writeLock().unlock();
         }
-        
-        return spectrum;
     }
     
     /**
-     * Perform incremental FFT update using sliding DFT algorithm.
+     * Perform the actual DFT computation and update internal state.
+     * This method assumes the caller holds the write lock.
+     */
+    private void performDFTComputation() {
+        double[] bufferData = buffer.toArray();
+        
+        // Ensure buffer is full size for DFT
+        double[] fullSizeData;
+        if (bufferData.length < dftSize) {
+            // Pad with zeros if buffer is not full
+            fullSizeData = new double[dftSize];
+            System.arraycopy(bufferData, 0, fullSizeData, 0, bufferData.length);
+        } else {
+            fullSizeData = bufferData;
+        }
+        
+        double[] processedData = applyWindow(fullSizeData);
+        
+        double[] newSpectrum;
+        try {
+            newSpectrum = dft.forward(processedData);
+        } catch (jwave.exceptions.JWaveException e) {
+            throw new RuntimeException("DFT computation failed", e);
+        }
+        
+        spectrum = newSpectrum;
+        spectrumDirty = false;
+        
+        // Update DFT coefficients for future sliding updates
+        for (int k = 0; k < dftSize; k++) {
+            dftCoefficientsReal[k] = spectrum[2 * k];
+            dftCoefficientsImag[k] = spectrum[2 * k + 1];
+        }
+    }
+    
+    /**
+     * Perform incremental DFT update using sliding DFT algorithm.
      * 
      * The sliding DFT efficiently updates the spectrum when samples
      * are shifted in/out of the buffer:
@@ -263,10 +293,16 @@ public class StreamingFFT extends AbstractStreamingTransform<double[]> {
      * @return Updated spectrum
      */
     private double[] performIncrementalUpdate(double[] newSamples) {
-        // For large updates, full FFT is more efficient
-        int threshold = calculateIncrementalThreshold(fftSize, FFT_INCREMENTAL_THRESHOLD_RATIO);
+        // For large updates, full DFT is more efficient
+        int threshold = calculateIncrementalThreshold(dftSize, DFT_INCREMENTAL_THRESHOLD_RATIO);
         if (newSamples.length > threshold || buffer.hasWrapped()) {
-            return recomputeFFT();
+            spectrumLock.writeLock().lock();
+            try {
+                spectrumDirty = true;
+            } finally {
+                spectrumLock.writeLock().unlock();
+            }
+            return recomputeDFT();
         }
         
         // If no new samples, return existing spectrum
@@ -276,7 +312,12 @@ public class StreamingFFT extends AbstractStreamingTransform<double[]> {
         
         spectrumLock.writeLock().lock();
         try {
-            // Get the current buffer data
+            // If spectrum is dirty, we need to recompute from scratch first
+            if (spectrumDirty) {
+                performDFTComputation();
+            }
+            
+            // Get the current buffer data before the new samples were added
             double[] bufferData = buffer.toArray();
             
             // For each new sample, update using sliding DFT
@@ -294,7 +335,7 @@ public class StreamingFFT extends AbstractStreamingTransform<double[]> {
                     newSample *= window[newIdx];
                     
                     // Apply window to removed sample if buffer was full
-                    if (buffer.size() >= fftSize && removed.isValid) {
+                    if (buffer.size() >= dftSize && removed.isValid) {
                         removed.value *= window[removed.index];
                     }
                 }
@@ -303,21 +344,20 @@ public class StreamingFFT extends AbstractStreamingTransform<double[]> {
                 updateSlidingDFTCoefficientsInPlace(
                     dftCoefficientsReal, dftCoefficientsImag,
                     twiddleFactorsReal, twiddleFactorsImag,
-                    removed.value, newSample, fftSize);
+                    removed.value, newSample, dftSize);
             }
             
             // Copy coefficients back to spectrum in interleaved format
-            for (int k = 0; k < fftSize; k++) {
+            for (int k = 0; k < dftSize; k++) {
                 spectrum[2 * k] = dftCoefficientsReal[k];
                 spectrum[2 * k + 1] = dftCoefficientsImag[k];
             }
             
             spectrumDirty = false;
+            return spectrum;
         } finally {
             spectrumLock.writeLock().unlock();
         }
-        
-        return spectrum;
     }
     
     /**
@@ -348,7 +388,7 @@ public class StreamingFFT extends AbstractStreamingTransform<double[]> {
      * @return Information about the removed sample
      */
     private RemovedSampleInfo calculateRemovedSample(double[] bufferData, int sampleIdx, int numNewSamples) {
-        if (buffer.size() < fftSize) {
+        if (buffer.size() < dftSize) {
             // Buffer not full yet, no sample is being removed
             return new RemovedSampleInfo(0, 0.0, false);
         }
@@ -361,7 +401,7 @@ public class StreamingFFT extends AbstractStreamingTransform<double[]> {
         
         // Calculate which sample position will be overwritten by this specific new sample
         // We go back by (numNewSamples - sampleIdx) positions from current write position
-        int removedIdx = (currentWritePos - numNewSamples + sampleIdx + fftSize) % fftSize;
+        int removedIdx = (currentWritePos - numNewSamples + sampleIdx + dftSize) % dftSize;
         
         return new RemovedSampleInfo(removedIdx, bufferData[removedIdx], true);
     }
@@ -377,7 +417,7 @@ public class StreamingFFT extends AbstractStreamingTransform<double[]> {
         // Position in buffer where this new sample will be placed
         // Use the actual write index for accuracy
         int currentWritePos = buffer.getWriteIndex();
-        return ((currentWritePos - numNewSamples + sampleIdx) % fftSize + fftSize) % fftSize;
+        return ((currentWritePos - numNewSamples + sampleIdx) % dftSize + dftSize) % dftSize;
     }
     
     /**
@@ -397,106 +437,98 @@ public class StreamingFFT extends AbstractStreamingTransform<double[]> {
     /**
      * Get the magnitude spectrum (absolute values).
      * 
-     * @return Magnitude spectrum of length N/2+1 for real input
+     * @return Magnitude spectrum of length N for real input
      */
     public double[] getMagnitudeSpectrum() {
+        return computeSpectralProperty(SpectrumType.MAGNITUDE);
+    }
+    
+    /**
+     * Enum for different spectrum computation types.
+     */
+    private enum SpectrumType {
+        MAGNITUDE, POWER, PHASE
+    }
+    
+    /**
+     * Common method to compute spectral properties with proper locking.
+     * 
+     * @param type The type of spectrum to compute
+     * @return The computed spectrum array
+     */
+    private double[] computeSpectralProperty(SpectrumType type) {
         // First check with read lock
         spectrumLock.readLock().lock();
         try {
             if (!spectrumDirty) {
-                // Fast path - compute magnitude while holding read lock
-                double[] magnitude = new double[halfSize + 1];
-                for (int i = 0; i <= halfSize; i++) {
-                    double real = spectrum[2 * i];
-                    double imag = spectrum[2 * i + 1];
-                    magnitude[i] = Math.sqrt(real * real + imag * imag);
-                }
-                return magnitude;
+                // Fast path - compute property while holding read lock
+                return computeFromSpectrum(spectrum, type);
             }
         } finally {
             spectrumLock.readLock().unlock();
         }
         
-        // Spectrum is dirty, need to recompute
-        return getMagnitudeSpectrumWithRecompute();
-    }
-    
-    /**
-     * Helper method to compute magnitude spectrum when recomputation is needed.
-     */
-    private double[] getMagnitudeSpectrumWithRecompute() {
+        // Spectrum is dirty, need to recompute with write lock
         spectrumLock.writeLock().lock();
         try {
-            // Double-check pattern - recompute if still dirty
+            // Double-check pattern
             if (spectrumDirty) {
-                double[] bufferData = buffer.toArray();
-                double[] processedData = applyWindow(bufferData);
-                
-                double[] newSpectrum;
-                try {
-                    newSpectrum = fft.forward(processedData);
-                } catch (jwave.exceptions.JWaveException e) {
-                    throw new RuntimeException("FFT computation failed", e);
-                }
-                
-                spectrum = newSpectrum;
-                spectrumDirty = false;
-                
-                // Update DFT coefficients for future sliding updates
-                for (int k = 0; k < fftSize; k++) {
-                    dftCoefficientsReal[k] = spectrum[2 * k];
-                    dftCoefficientsImag[k] = spectrum[2 * k + 1];
-                }
+                performDFTComputation();
             }
             
-            // Compute magnitude while holding write lock
-            double[] magnitude = new double[halfSize + 1];
-            for (int i = 0; i <= halfSize; i++) {
-                double real = spectrum[2 * i];
-                double imag = spectrum[2 * i + 1];
-                magnitude[i] = Math.sqrt(real * real + imag * imag);
-            }
-            
-            return magnitude;
+            // Compute property while holding write lock
+            return computeFromSpectrum(spectrum, type);
         } finally {
             spectrumLock.writeLock().unlock();
         }
     }
     
     /**
-     * Get the power spectrum (squared magnitudes).
+     * Extract spectral property from complex spectrum data.
      * 
-     * @return Power spectrum of length N/2+1 for real input
+     * @param spectrum Complex spectrum in interleaved format
+     * @param type The type of property to extract
+     * @return The extracted property array
      */
-    public double[] getPowerSpectrum() {
-        double[] spec = getCachedCoefficients();
-        double[] power = new double[halfSize + 1];
+    private double[] computeFromSpectrum(double[] spectrum, SpectrumType type) {
+        double[] result = new double[dftSize];
         
-        for (int i = 0; i <= halfSize; i++) {
-            double real = spec[2 * i];
-            double imag = spec[2 * i + 1];
-            power[i] = real * real + imag * imag;
+        for (int i = 0; i < dftSize; i++) {
+            double real = spectrum[2 * i];
+            double imag = spectrum[2 * i + 1];
+            
+            switch (type) {
+                case MAGNITUDE:
+                    result[i] = Math.sqrt(real * real + imag * imag);
+                    break;
+                case POWER:
+                    result[i] = real * real + imag * imag;
+                    break;
+                case PHASE:
+                    result[i] = Math.atan2(imag, real);
+                    break;
+            }
         }
         
-        return power;
+        return result;
+    }
+    
+    /**
+     * Get the power spectrum (squared magnitudes).
+     * 
+     * @return Power spectrum of length N for real input
+     */
+    public double[] getPowerSpectrum() {
+        return computeSpectralProperty(SpectrumType.POWER);
     }
     
     /**
      * Get the phase spectrum.
      * 
-     * @return Phase spectrum in radians of length N/2+1 for real input
+     * @return Phase spectrum in radians of length N for real input
      */
     public double[] getPhaseSpectrum() {
-        double[] spec = getCachedCoefficients();
-        double[] phase = new double[halfSize + 1];
-        
-        for (int i = 0; i <= halfSize; i++) {
-            double real = spec[2 * i];
-            double imag = spec[2 * i + 1];
-            phase[i] = Math.atan2(imag, real);
-        }
-        
-        return phase;
+        return computeSpectralProperty(SpectrumType.PHASE);
     }
     
     /**
@@ -506,10 +538,10 @@ public class StreamingFFT extends AbstractStreamingTransform<double[]> {
      * @return Array of frequency values in Hz
      */
     public double[] getFrequencyBins(double samplingRate) {
-        double[] frequencies = new double[halfSize + 1];
-        double binWidth = samplingRate / fftSize;
+        double[] frequencies = new double[dftSize];
+        double binWidth = samplingRate / dftSize;
         
-        for (int i = 0; i <= halfSize; i++) {
+        for (int i = 0; i < dftSize; i++) {
             frequencies[i] = i * binWidth;
         }
         
@@ -529,37 +561,8 @@ public class StreamingFFT extends AbstractStreamingTransform<double[]> {
             spectrumLock.readLock().unlock();
         }
         
-        // Spectrum is dirty, need to recompute
-        // Use write lock to ensure only one thread recomputes
-        spectrumLock.writeLock().lock();
-        try {
-            // Double-check pattern - another thread may have already recomputed
-            if (spectrumDirty) {
-                // We hold the write lock, safe to recompute
-                double[] bufferData = buffer.toArray();
-                double[] processedData = applyWindow(bufferData);
-                
-                double[] newSpectrum;
-                try {
-                    newSpectrum = fft.forward(processedData);
-                } catch (jwave.exceptions.JWaveException e) {
-                    throw new RuntimeException("FFT computation failed", e);
-                }
-                
-                spectrum = newSpectrum;
-                spectrumDirty = false;
-                
-                // Update DFT coefficients for future sliding updates
-                for (int k = 0; k < fftSize; k++) {
-                    dftCoefficientsReal[k] = spectrum[2 * k];
-                    dftCoefficientsImag[k] = spectrum[2 * k + 1];
-                }
-            }
-            
-            return spectrum;
-        } finally {
-            spectrumLock.writeLock().unlock();
-        }
+        // Spectrum is dirty, need to recompute with proper locking
+        return recomputeDFT();
     }
     
     @Override
@@ -580,16 +583,18 @@ public class StreamingFFT extends AbstractStreamingTransform<double[]> {
     }
     
     /**
-     * Get the FFT size.
+     * Get the DFT size.
      * 
-     * @return FFT size (same as buffer size)
+     * @return DFT size (same as buffer size)
      */
-    public int getFFTSize() {
-        return fftSize;
+    public int getDFTSize() {
+        return dftSize;
     }
     
     /**
      * Compute the dominant frequency in the current spectrum.
+     * Note: For DFT, the full spectrum includes both positive and negative frequencies.
+     * This method considers only the positive frequencies (0 to N/2).
      * 
      * @param samplingRate The sampling rate in Hz
      * @return The frequency with highest magnitude, or 0 if no clear peak
@@ -597,11 +602,12 @@ public class StreamingFFT extends AbstractStreamingTransform<double[]> {
     public double getDominantFrequency(double samplingRate) {
         double[] magnitude = getMagnitudeSpectrum();
         
-        // Find peak magnitude (skip DC component)
+        // Find peak magnitude in positive frequencies (skip DC component)
         int peakBin = 0;
         double peakMag = 0.0;
+        int maxBin = dftSize / 2; // Only consider positive frequencies
         
-        for (int i = 1; i < magnitude.length; i++) {
+        for (int i = 1; i <= maxBin; i++) {
             if (magnitude[i] > peakMag) {
                 peakMag = magnitude[i];
                 peakBin = i;
@@ -609,11 +615,12 @@ public class StreamingFFT extends AbstractStreamingTransform<double[]> {
         }
         
         // Convert bin to frequency
-        return peakBin * samplingRate / fftSize;
+        return peakBin * samplingRate / dftSize;
     }
     
     /**
      * Estimate the spectral centroid (center of mass of spectrum).
+     * Only considers positive frequencies.
      * 
      * @param samplingRate The sampling rate in Hz
      * @return Spectral centroid in Hz
@@ -624,8 +631,9 @@ public class StreamingFFT extends AbstractStreamingTransform<double[]> {
         
         double weightedSum = 0.0;
         double totalMagnitude = 0.0;
+        int maxBin = dftSize / 2; // Only consider positive frequencies
         
-        for (int i = 0; i < magnitude.length; i++) {
+        for (int i = 0; i <= maxBin; i++) {
             weightedSum += frequencies[i] * magnitude[i];
             totalMagnitude += magnitude[i];
         }
