@@ -8,7 +8,6 @@
 package jwave.transforms.streaming;
 
 import jwave.transforms.GeneralDiscreteFourierTransform;
-import jwave.datatypes.natives.Complex;
 import java.util.Arrays;
 import java.util.Objects;
 import java.util.concurrent.locks.ReadWriteLock;
@@ -54,16 +53,18 @@ public class StreamingDFT extends AbstractStreamingTransform<double[]> {
     private double[] spectrum;
     private boolean spectrumDirty = false;
     
-    // Sliding DFT state
-    private Complex[] dftCoefficients;
+    // Sliding DFT state - using primitive arrays for better performance
+    private double[] dftCoefficientsReal;
+    private double[] dftCoefficientsImag;
     private double[] window;
     private boolean useWindow = false;
     
     // Thread safety for coefficient access
     private final ReadWriteLock spectrumLock = new ReentrantReadWriteLock();
     
-    // Twiddle factors for sliding DFT
-    private Complex[] twiddleFactors;
+    // Twiddle factors for sliding DFT - using primitive arrays
+    private double[] twiddleFactorsReal;
+    private double[] twiddleFactorsImag;
     
     /**
      * Create a new streaming DFT transform.
@@ -129,11 +130,10 @@ public class StreamingDFT extends AbstractStreamingTransform<double[]> {
         spectrum = new double[dftSize * 2];
         spectrumDirty = true;  // Mark as dirty so it gets computed on first access
         
-        // Initialize sliding DFT state
-        dftCoefficients = new Complex[dftSize];
-        for (int i = 0; i < dftSize; i++) {
-            dftCoefficients[i] = new Complex(0, 0);
-        }
+        // Initialize sliding DFT state with primitive arrays
+        dftCoefficientsReal = new double[dftSize];
+        dftCoefficientsImag = new double[dftSize];
+        // Arrays are already initialized to 0.0 by Java
         
         // Pre-compute twiddle factors for sliding DFT
         initializeTwiddleFactors();
@@ -148,12 +148,14 @@ public class StreamingDFT extends AbstractStreamingTransform<double[]> {
      * Initialize twiddle factors for sliding DFT algorithm.
      */
     private void initializeTwiddleFactors() {
-        twiddleFactors = new Complex[dftSize];
+        twiddleFactorsReal = new double[dftSize];
+        twiddleFactorsImag = new double[dftSize];
         double angleIncrement = -2.0 * Math.PI / dftSize;
         
         for (int k = 0; k < dftSize; k++) {
             double angle = angleIncrement * k;
-            twiddleFactors[k] = new Complex(Math.cos(angle), Math.sin(angle));
+            twiddleFactorsReal[k] = Math.cos(angle);
+            twiddleFactorsImag[k] = Math.sin(angle);
         }
     }
     
@@ -267,10 +269,8 @@ public class StreamingDFT extends AbstractStreamingTransform<double[]> {
         
         // Update DFT coefficients for future sliding updates
         for (int k = 0; k < dftSize; k++) {
-            dftCoefficients[k] = new Complex(
-                spectrum[2 * k],
-                spectrum[2 * k + 1]
-            );
+            dftCoefficientsReal[k] = spectrum[2 * k];
+            dftCoefficientsImag[k] = spectrum[2 * k + 1];
         }
     }
     
@@ -333,15 +333,17 @@ public class StreamingDFT extends AbstractStreamingTransform<double[]> {
                     }
                 }
                 
-                // Update each frequency bin using sliding DFT
-                updateSlidingDFTCoefficients(dftCoefficients, twiddleFactors, 
-                                           removed.value, newSample, dftSize);
+                // Update each frequency bin using sliding DFT with in-place method
+                updateSlidingDFTCoefficientsInPlace(
+                    dftCoefficientsReal, dftCoefficientsImag,
+                    twiddleFactorsReal, twiddleFactorsImag,
+                    removed.value, newSample, dftSize);
             }
             
-            // Convert back to interleaved format
+            // Copy coefficients back to spectrum in interleaved format
             for (int k = 0; k < dftSize; k++) {
-                spectrum[2 * k] = dftCoefficients[k].getReal();
-                spectrum[2 * k + 1] = dftCoefficients[k].getImag();
+                spectrum[2 * k] = dftCoefficientsReal[k];
+                spectrum[2 * k + 1] = dftCoefficientsImag[k];
             }
             
             spectrumDirty = false;
@@ -564,9 +566,8 @@ public class StreamingDFT extends AbstractStreamingTransform<double[]> {
             Arrays.fill(spectrum, 0.0);
             
             // Clear DFT coefficients
-            for (int i = 0; i < dftSize; i++) {
-                dftCoefficients[i] = new Complex(0, 0);
-            }
+            Arrays.fill(dftCoefficientsReal, 0.0);
+            Arrays.fill(dftCoefficientsImag, 0.0);
             
             spectrumDirty = false;
         } finally {
