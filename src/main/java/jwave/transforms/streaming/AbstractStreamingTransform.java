@@ -266,6 +266,10 @@ public abstract class AbstractStreamingTransform<T> implements StreamingTransfor
      * This method encapsulates the common sliding DFT update logic shared
      * between FFT and DFT implementations.
      * 
+     * Note: Since Complex objects are immutable, we cannot update them in place.
+     * To minimize allocations in real-time scenarios, consider maintaining
+     * parallel real/imaginary arrays instead of Complex objects for coefficients.
+     * 
      * @param dftCoefficients Array of current DFT coefficients to update
      * @param twiddleFactors Pre-computed twiddle factors for the transform
      * @param removedValue Value of the sample being removed from the sliding window
@@ -279,23 +283,65 @@ public abstract class AbstractStreamingTransform<T> implements StreamingTransfor
             double newSample,
             int transformSize) {
         
+        // Pre-calculate the sample difference to avoid repeated subtraction
+        double sampleDiff = newSample - removedValue;
+        
         // Update each frequency bin using sliding DFT algorithm
         for (int k = 0; k < transformSize; k++) {
-            // Get current coefficient
-            Complex coeff = dftCoefficients[k];
+            // Get current coefficient components
+            double coeffReal = dftCoefficients[k].getReal();
+            double coeffImag = dftCoefficients[k].getImag();
             
-            // Update in-place: (coeff - removed + newSample) * twiddle
-            // First: coeff = coeff - removed + newSample
-            double real = coeff.getReal() - removedValue + newSample;
-            double imag = coeff.getImag();
+            // Update: (coeff + sampleDiff) * twiddle
+            double updatedReal = coeffReal + sampleDiff;
             
-            // Then multiply by twiddle factor
-            Complex twiddle = twiddleFactors[k];
-            double newReal = real * twiddle.getReal() - imag * twiddle.getImag();
-            double newImag = real * twiddle.getImag() + imag * twiddle.getReal();
+            // Get twiddle factor components  
+            double twiddleReal = twiddleFactors[k].getReal();
+            double twiddleImag = twiddleFactors[k].getImag();
             
-            // Update the coefficient
+            // Compute final values: (updatedReal + j*coeffImag) * (twiddleReal + j*twiddleImag)
+            double newReal = updatedReal * twiddleReal - coeffImag * twiddleImag;
+            double newImag = updatedReal * twiddleImag + coeffImag * twiddleReal;
+            
+            // Create new coefficient (only one allocation per coefficient)
             dftCoefficients[k] = new Complex(newReal, newImag);
+        }
+    }
+    
+    /**
+     * Alternative sliding DFT update using separate real/imaginary arrays.
+     * This version avoids Complex object allocations entirely, making it
+     * more suitable for real-time applications.
+     * 
+     * @param coefficientsReal Real parts of DFT coefficients
+     * @param coefficientsImag Imaginary parts of DFT coefficients
+     * @param twiddleReal Real parts of twiddle factors
+     * @param twiddleImag Imaginary parts of twiddle factors
+     * @param removedValue Value being removed from the window
+     * @param newSample Value being added to the window
+     * @param transformSize Size of the transform
+     */
+    protected static void updateSlidingDFTCoefficientsInPlace(
+            double[] coefficientsReal,
+            double[] coefficientsImag,
+            double[] twiddleReal,
+            double[] twiddleImag,
+            double removedValue,
+            double newSample,
+            int transformSize) {
+        
+        // Pre-calculate the sample difference
+        double sampleDiff = newSample - removedValue;
+        
+        // Update each frequency bin
+        for (int k = 0; k < transformSize; k++) {
+            // Update real part with sample difference
+            double updatedReal = coefficientsReal[k] + sampleDiff;
+            double currentImag = coefficientsImag[k];
+            
+            // Apply twiddle factor rotation
+            coefficientsReal[k] = updatedReal * twiddleReal[k] - currentImag * twiddleImag[k];
+            coefficientsImag[k] = updatedReal * twiddleImag[k] + currentImag * twiddleReal[k];
         }
     }
     
