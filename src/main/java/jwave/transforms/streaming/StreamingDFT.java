@@ -27,6 +27,12 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
  * - Thread-safe coefficient access
  * - Optional windowing support
  * 
+ * Update strategies:
+ * - FULL: Always recompute the entire DFT immediately
+ * - INCREMENTAL: Use sliding DFT for small updates, full DFT for large updates
+ * - LAZY: Mark spectrum as dirty but return stale data; actual computation
+ *         happens when spectrum properties are accessed (getMagnitudeSpectrum, etc.)
+ * 
  * The sliding DFT algorithm allows efficient updates when individual samples
  * are added to the buffer, avoiding full DFT recomputation. For larger
  * updates, the implementation falls back to standard DFT computation.
@@ -205,11 +211,12 @@ public class StreamingDFT extends AbstractStreamingTransform<double[]> {
                 spectrumLock.writeLock().lock();
                 try {
                     spectrumDirty = true;
+                    // Return the current (potentially stale) spectrum without triggering recomputation
+                    // This is the expected behavior for LAZY mode
+                    return Arrays.copyOf(spectrum, spectrum.length);
                 } finally {
                     spectrumLock.writeLock().unlock();
                 }
-                // Return current spectrum
-                return getSpectrum();
                 
             default:
                 throw new IllegalStateException("Unknown update strategy: " + config.getUpdateStrategy());
