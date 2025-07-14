@@ -266,16 +266,19 @@ public abstract class AbstractStreamingTransform<T> implements StreamingTransfor
      * This method encapsulates the common sliding DFT update logic shared
      * between FFT and DFT implementations.
      * 
-     * Note: Since Complex objects are immutable, we cannot update them in place.
-     * To minimize allocations in real-time scenarios, consider maintaining
-     * parallel real/imaginary arrays instead of Complex objects for coefficients.
+     * WARNING: This method allocates a new Complex object for each frequency bin
+     * on every update, which can cause significant GC pressure in real-time
+     * applications. For better performance, use updateSlidingDFTCoefficientsInPlace
+     * instead, which operates on primitive arrays without allocations.
      * 
+     * @deprecated Use {@link #updateSlidingDFTCoefficientsInPlace} for better performance
      * @param dftCoefficients Array of current DFT coefficients to update
      * @param twiddleFactors Pre-computed twiddle factors for the transform
      * @param removedValue Value of the sample being removed from the sliding window
      * @param newSample Value of the new sample being added to the sliding window
      * @param transformSize Size of the transform (FFT size or DFT size)
      */
+    @Deprecated
     protected static void updateSlidingDFTCoefficients(
             Complex[] dftCoefficients,
             Complex[] twiddleFactors,

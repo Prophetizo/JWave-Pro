@@ -29,7 +29,10 @@ import java.util.Arrays;
 public class StreamingDFTTest {
     
     private static final double DELTA = 1e-9;
-    private static final double RELAXED_DELTA = 1e-6;
+    
+    // Incremental sliding DFT updates can accumulate small numerical errors
+    // compared to full DFT recomputation, so we use a slightly relaxed tolerance
+    private static final double INCREMENTAL_UPDATE_DELTA = 1e-6;
     
     // Magnitude thresholds for peak detection
     private static final double SIGNIFICANT_PEAK_MAGNITUDE = 50.0;
@@ -246,7 +249,7 @@ public class StreamingDFTTest {
         double[] incSpectrum = incDFT.getMagnitudeSpectrum();
         
         assertArrayEquals("Incremental and full update should produce same result",
-                         fullSpectrum, incSpectrum, RELAXED_DELTA);
+                         fullSpectrum, incSpectrum, INCREMENTAL_UPDATE_DELTA);
     }
     
     @Test
