@@ -236,16 +236,7 @@ public abstract class AbstractStreamingTransform<T> implements StreamingTransfor
     
     /**
      * Threshold ratios for switching from incremental to full recomputation.
-     * 
-     * The threshold determines when incremental sliding DFT updates become
-     * less efficient than full recomputation. Different algorithms have
-     * different computational complexities:
-     * 
-     * - FFT: O(N log N) full computation vs O(N) incremental → threshold = 1/4
-     * - DFT: O(N²) full computation vs O(N) incremental → threshold = 1/8
-     * 
-     * Lower thresholds favor incremental updates for longer, which makes sense
-     * when full recomputation is more expensive (O(N²) vs O(N log N)).
+     * When update size exceeds this ratio of buffer size, full computation is more efficient.
      */
     protected static final double FFT_INCREMENTAL_THRESHOLD_RATIO = 0.25;  // 1/4
     protected static final double DFT_INCREMENTAL_THRESHOLD_RATIO = 0.125; // 1/8

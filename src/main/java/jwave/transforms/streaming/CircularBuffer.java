@@ -323,14 +323,9 @@ public class CircularBuffer {
     
     /**
      * Get the current write index where the next sample would be written.
-     * This is useful for calculating which samples are being overwritten
-     * in sliding window algorithms.
      * 
-     * Note: This method returns a volatile field and provides visibility
-     * guarantees but NOT atomicity. The returned value represents a
-     * snapshot that may become stale if the buffer is modified concurrently.
-     * For consistent results during multi-step operations, external
-     * synchronization is required as per the class-level documentation.
+     * Note: Returns a volatile field (visibility but not atomicity).
+     * External synchronization required for multi-step operations.
      * 
      * @return the write index (0 to capacity-1)
      */

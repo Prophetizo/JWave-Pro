@@ -37,8 +37,6 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
  */
 public class StreamingFFT extends AbstractStreamingTransform<double[]> {
     
-    // Note: Threshold ratio is now defined in AbstractStreamingTransform
-    
     private final FastFourierTransform fft;
     private final StreamingTransformConfig config;
     

@@ -410,20 +410,16 @@ public class StreamingDFTTest {
         double cosPhaseAtPeak = cosPhase[peakBin];
         double sinPhaseAtPeak = sinPhase[peakBin];
         
-        // For near-zero phases, the test might be invalid due to numerical precision
-        // Only test phase difference if both signals have reasonable phase values
-        if (Math.abs(cosPhaseAtPeak) < 1e-10 && Math.abs(sinPhaseAtPeak) < 1e-10) {
-            // Both phases are essentially zero, which is expected for real symmetric signals
-            // This test passes as the phase computation is working correctly
-            assertTrue("Phase computation is working correctly for nearly real signals", true);
-        } else {
-            // Phase difference between sine and cosine should be π/2
-            double phaseDiff = sinPhaseAtPeak - cosPhaseAtPeak;
-            
-            // Normalize to [-π, π]
-            while (phaseDiff > Math.PI) phaseDiff -= 2 * Math.PI;
-            while (phaseDiff < -Math.PI) phaseDiff += 2 * Math.PI;
-            
+        // Phase difference between sine and cosine should be π/2
+        double phaseDiff = sinPhaseAtPeak - cosPhaseAtPeak;
+        
+        // Normalize to [-π, π]
+        while (phaseDiff > Math.PI) phaseDiff -= 2 * Math.PI;
+        while (phaseDiff < -Math.PI) phaseDiff += 2 * Math.PI;
+        
+        // For near-zero magnitude bins, phase is undefined/unstable
+        // Only verify phase difference at bins with significant magnitude
+        if (maxMag > MEDIUM_PEAK_MAGNITUDE) {
             // Check if it's π/2 or -π/2 (which are both valid 90° phase shifts)
             assertTrue("Phase difference should be ±π/2, got: " + phaseDiff + 
                       " at bin " + peakBin + " (cos phase: " + cosPhaseAtPeak + ", sin phase: " + sinPhaseAtPeak + ")", 
