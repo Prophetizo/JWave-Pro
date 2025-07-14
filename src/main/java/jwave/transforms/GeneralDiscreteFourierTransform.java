@@ -121,15 +121,27 @@ public class GeneralDiscreteFourierTransform extends BasicTransform {
         // Sign of exponent (+1 for inverse, -1 for forward)
         double sign = inverse ? 1.0 : -1.0;
         
+        // Precompute twiddle factors for efficiency
+        // twiddle[k][m] = exp(sign * j * 2 * pi * k * m / n)
+        // But we only need to store the base twiddles and compute products
+        Complex[] baseTwiddles = new Complex[n];
+        double angleIncrement = sign * 2.0 * Math.PI / n;
+        
+        for (int m = 0; m < n; m++) {
+            double angle = angleIncrement * m;
+            baseTwiddles[m] = new Complex(Math.cos(angle), Math.sin(angle));
+        }
+        
         // Compute each output sample
         for (int k = 0; k < n; k++) {
             Complex sum = new Complex(0, 0);
             
             // Sum over all input samples
             for (int m = 0; m < n; m++) {
-                // Calculate exp(sign * j * 2 * pi * k * m / n)
-                double angle = sign * 2.0 * Math.PI * k * m / n;
-                Complex twiddle = new Complex(Math.cos(angle), Math.sin(angle));
+                // Use precomputed twiddle: exp(sign * j * 2 * pi * k * m / n)
+                // This is baseTwiddles[m]^k, but we can compute it as baseTwiddles[(k*m) % n]
+                int twiddleIndex = (k * m) % n;
+                Complex twiddle = baseTwiddles[twiddleIndex];
                 
                 // Multiply and accumulate
                 sum = sum.add(x[m].mul(twiddle));

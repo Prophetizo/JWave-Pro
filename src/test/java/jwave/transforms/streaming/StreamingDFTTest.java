@@ -31,6 +31,16 @@ public class StreamingDFTTest {
     private static final double DELTA = 1e-9;
     private static final double RELAXED_DELTA = 1e-6;
     
+    // Magnitude thresholds for peak detection
+    private static final double SIGNIFICANT_PEAK_MAGNITUDE = 50.0;
+    private static final double MEDIUM_PEAK_MAGNITUDE = 30.0;
+    private static final double SMALL_PEAK_MAGNITUDE = 10.0;
+    
+    // Frequency test parameters
+    private static final double DC_SIGNAL_VALUE = 1.0;
+    private static final double DC_SIGNAL_CHANGE = 2.0;
+    private static final double DC_MAGNITUDE_THRESHOLD = 40.0;
+    
     @Test
     public void testBasicConstruction() {
         StreamingTransformConfig config = StreamingTransformConfig.builder()
@@ -86,7 +96,7 @@ public class StreamingDFTTest {
         // For a 200-point DFT, positive frequencies are 0 to 100, negative are 101 to 199
         // The peak should be at bin 10 or its negative frequency counterpart at 190
         assertTrue("Peak should be at bin 10 or 190", peakBin == 10 || peakBin == 190);
-        assertTrue("Peak magnitude should be significant", peakMag > 50.0);
+        assertTrue("Peak magnitude should be significant", peakMag > SIGNIFICANT_PEAK_MAGNITUDE);
         
         // Verify other bins are near zero (excluding both positive and negative frequency peaks)
         for (int i = 0; i < magnitude.length; i++) {
@@ -168,14 +178,14 @@ public class StreamingDFTTest {
         
         // Fill buffer with a DC signal
         double[] initialSignal = new double[50];
-        Arrays.fill(initialSignal, 1.0);
+        Arrays.fill(initialSignal, DC_SIGNAL_VALUE);
         dft.update(initialSignal);
         
         // Get initial spectrum
         double[] initialMagnitude = dft.getMagnitudeSpectrum();
         
         // Add a single sample that changes the signal
-        dft.update(new double[]{2.0});
+        dft.update(new double[]{DC_SIGNAL_CHANGE});
         
         double[] magnitude = dft.getMagnitudeSpectrum();
         
@@ -190,7 +200,7 @@ public class StreamingDFTTest {
         assertTrue("Spectrum should change after incremental update", spectrumChanged);
         
         // Verify DC component is significant
-        assertTrue("DC component should be significant", magnitude[0] > 40.0);
+        assertTrue("DC component should be significant", magnitude[0] > DC_MAGNITUDE_THRESHOLD);
     }
     
     @Test
@@ -391,7 +401,7 @@ public class StreamingDFTTest {
         }
         
         // Verify we found a significant peak
-        assertTrue("Should have significant peak", maxMag > 30.0);
+        assertTrue("Should have significant peak", maxMag > MEDIUM_PEAK_MAGNITUDE);
         
         // Get phase values at the peak frequency
         double cosPhaseAtPeak = cosPhase[peakBin];
@@ -533,7 +543,7 @@ public class StreamingDFTTest {
             int closestBin = 0;
             double minDiff = Double.MAX_VALUE;
             
-            for (int i = 0; i < maxBin; i++) {
+            for (int i = 0; i <= maxBin; i++) {
                 double diff = Math.abs(freqBins[i] - targetFreq);
                 if (diff < minDiff) {
                     minDiff = diff;
@@ -543,7 +553,7 @@ public class StreamingDFTTest {
             
             // Verify peak exists
             assertTrue("Should have peak near " + targetFreq + " Hz",
-                      magnitude[closestBin] > 30.0);
+                      magnitude[closestBin] > MEDIUM_PEAK_MAGNITUDE);
         }
     }
     
@@ -578,7 +588,7 @@ public class StreamingDFTTest {
                     maxMag = mag;
                 }
             }
-            assertTrue("Should have a significant peak", maxMag > 10.0);
+            assertTrue("Should have a significant peak", maxMag > SMALL_PEAK_MAGNITUDE);
         }
     }
     
