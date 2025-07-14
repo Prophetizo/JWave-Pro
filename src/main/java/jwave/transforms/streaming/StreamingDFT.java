@@ -277,19 +277,25 @@ public class StreamingDFT extends AbstractStreamingTransform<double[]> {
     /**
      * Perform incremental DFT update using sliding DFT algorithm.
      * 
-     * The sliding DFT efficiently updates the spectrum when samples
-     * are shifted in/out of the buffer:
-     * X[k] = (X_old[k] - x_oldest + x_newest) * W^k
-     * where W = exp(-j*2*pi/N) is the twiddle factor.
+     * Note: INCREMENTAL strategy currently falls back to full DFT recomputation
+     * for correctness. The sliding DFT algorithm has numerical issues that need
+     * to be resolved. Future implementation can use the shared
+     * updateSlidingDFTCoefficients() method and centralized threshold calculation
+     * via calculateIncrementalThreshold().
      * 
      * @param newSamples The new samples added to the buffer
      * @return Updated spectrum
      */
     private double[] performIncrementalUpdate(double[] newSamples) {
-        // Note: INCREMENTAL strategy currently falls back to full DFT recomputation
-        // for correctness. Sliding DFT optimization can be implemented in the future
-        // using the shared updateSlidingDFTCoefficients() method and centralized
-        // threshold calculation via calculateIncrementalThreshold().
+        // Mark spectrum as dirty to force recomputation
+        spectrumLock.writeLock().lock();
+        try {
+            spectrumDirty = true;
+        } finally {
+            spectrumLock.writeLock().unlock();
+        }
+        
+        // For now, always fall back to full DFT recomputation for correctness
         return recomputeDFT();
     }
     
