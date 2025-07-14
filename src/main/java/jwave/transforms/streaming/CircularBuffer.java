@@ -16,8 +16,10 @@ import java.util.Arrays;
  * data is added. It provides efficient access patterns for wavelet transforms
  * including window extraction and wraparound handling.
  * 
- * Thread-safety: This class is NOT thread-safe. External synchronization is
- * required for concurrent access.
+ * Thread-safety: This class is NOT thread-safe for concurrent modifications.
+ * External synchronization is required for concurrent access. However, the
+ * state fields (writeIndex, size, hasWrapped) are marked volatile to ensure
+ * visibility across threads when external synchronization is used.
  * 
  * @author Prophetizo
  * @date 2025-07-12
@@ -33,9 +35,9 @@ public class CircularBuffer {
     
     private final double[] buffer;
     private final int capacity;
-    private int writeIndex;
-    private int size;
-    private boolean hasWrapped;
+    private volatile int writeIndex;
+    private volatile int size;
+    private volatile boolean hasWrapped;
     
     /**
      * Create a new circular buffer with the specified capacity.
