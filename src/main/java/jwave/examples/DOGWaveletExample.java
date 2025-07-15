@@ -115,6 +115,11 @@ public class DOGWaveletExample {
         DOGWavelet edgeDetector = DOGWavelet.createStandard(DOGWavelet.WaveletType.EDGE, 2.0);
         ContinuousWaveletTransform cwt = new ContinuousWaveletTransform(edgeDetector);
         
+        // For optimized edge detection performance:
+        // import jwave.transforms.OptimizedFastFourierTransform;
+        // ContinuousWaveletTransform cwt = new ContinuousWaveletTransform(edgeDetector,
+        //     new OptimizedFastFourierTransform());
+        
         // Single scale analysis
         double[] scales = {5.0};
         CWTResult result = cwt.transformFFT(signal, scales, 1.0);

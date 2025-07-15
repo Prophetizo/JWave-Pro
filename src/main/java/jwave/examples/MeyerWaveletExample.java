@@ -115,6 +115,13 @@ public class MeyerWaveletExample {
     System.out.println("\nPerforming Continuous Wavelet Transform...");
     ContinuousWaveletTransform cwt = new ContinuousWaveletTransform(meyerWavelet);
     
+    // For better performance with Meyer wavelets (which require FFT internally):
+    // import jwave.transforms.OptimizedFastFourierTransform;
+    // import jwave.operations.ComplexOperationsFactory;
+    // ContinuousWaveletTransform cwt = new ContinuousWaveletTransform(meyerWavelet,
+    //     ContinuousWaveletTransform.PaddingType.SYMMETRIC,
+    //     new OptimizedFastFourierTransform(), ComplexOperationsFactory.getSIMD());
+    
     // Generate scales for analysis
     // Meyer wavelet has good frequency resolution, so we can use fine scale steps
     double[] scales = ContinuousWaveletTransform.generateLogScales(0.5, 20.0, 30);

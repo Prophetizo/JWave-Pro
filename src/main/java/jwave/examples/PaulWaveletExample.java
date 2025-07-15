@@ -93,6 +93,11 @@ public class PaulWaveletExample {
         PaulWavelet paul = new PaulWavelet(8); // High order for frequency resolution
         ContinuousWaveletTransform cwt = new ContinuousWaveletTransform(paul);
         
+        // For better performance with complex wavelets:
+        // import jwave.transforms.OptimizedFastFourierTransform;
+        // ContinuousWaveletTransform cwt = new ContinuousWaveletTransform(paul,
+        //     new OptimizedFastFourierTransform());
+        
         // Generate scales corresponding to frequencies 5-60 Hz
         double[] frequencies = new double[20];
         for (int i = 0; i < 20; i++) {

@@ -56,6 +56,10 @@ public class CWTExample {
     MorletWavelet morletWavelet = new MorletWavelet(1.0, 1.0);
     ContinuousWaveletTransform morletCWT = new ContinuousWaveletTransform(morletWavelet);
     
+    // Note: For better performance, especially with FFT-based transforms:
+    // ContinuousWaveletTransform morletCWT = new ContinuousWaveletTransform(
+    //     morletWavelet, new OptimizedFastFourierTransform());
+    
     // Generate logarithmically spaced scales
     // Scales correspond to frequencies from ~5 Hz to ~200 Hz
     double[] scales = ContinuousWaveletTransform.generateLogScales(0.2, 20.0, 50);
@@ -105,6 +109,12 @@ public class CWTExample {
     // Create Mexican Hat wavelet CWT
     MexicanHatWavelet mexicanWavelet = new MexicanHatWavelet(2.0);
     ContinuousWaveletTransform mexicanCWT = new ContinuousWaveletTransform(mexicanWavelet);
+    
+    // For edge detection with optimized performance:
+    // import jwave.operations.ComplexOperationsFactory;
+    // ContinuousWaveletTransform mexicanCWT = new ContinuousWaveletTransform(
+    //     mexicanWavelet, ContinuousWaveletTransform.PaddingType.SYMMETRIC, 
+    //     new OptimizedFastFourierTransform(), ComplexOperationsFactory.getSIMD());
     
     // Use fewer scales for edge detection
     double[] edgeScales = ContinuousWaveletTransform.generateLinearScales(1.0, 10.0, 10);

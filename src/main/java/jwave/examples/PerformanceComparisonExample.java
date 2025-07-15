@@ -31,6 +31,7 @@ import jwave.transforms.MODWTTransform;
 import jwave.transforms.ContinuousWaveletTransform;
 import jwave.transforms.wavelets.Wavelet;
 import jwave.transforms.wavelets.OptimizedWavelet;
+import jwave.transforms.wavelets.OptimizedWaveletOperations;
 import jwave.datatypes.natives.OptimizedComplex;
 import jwave.transforms.wavelets.daubechies.Daubechies4;
 import jwave.transforms.wavelets.daubechies.Daubechies8;
@@ -171,9 +172,12 @@ public class PerformanceComparisonExample {
         System.out.println("========================================");
         
         Wavelet wavelet = new Daubechies4();
-        MODWTTransform modwt = new MODWTTransform(wavelet);
+        // Use optimized implementations for better performance
+        MODWTTransform modwt = new MODWTTransform(wavelet, 
+            new OptimizedFastFourierTransform(),
+            new OptimizedWaveletOperations());
         
-        System.out.println("Note: MODWT now uses optimized convolution internally");
+        System.out.println("Note: MODWT configured with optimized FFT and wavelet operations");
         System.out.printf("%-8s | %-12s | %-8s | %-12s\n", 
                          "Size", "Time (ms)", "Levels", "Coeffs/ms");
         System.out.println("-".repeat(50));
@@ -219,7 +223,9 @@ public class PerformanceComparisonExample {
         System.out.println("-".repeat(50));
         
         MorletWavelet motherWavelet = new MorletWavelet();
-        ContinuousWaveletTransform cwt = new ContinuousWaveletTransform(motherWavelet);
+        // Use optimized implementations for better performance
+        ContinuousWaveletTransform cwt = new ContinuousWaveletTransform(motherWavelet,
+            new OptimizedFastFourierTransform());
         Transform transform = new Transform(cwt);
         
         double[] scales = {4.0, 8.0, 16.0, 32.0};

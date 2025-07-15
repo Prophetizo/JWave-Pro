@@ -71,6 +71,11 @@ public class MODWTExample {
         // Create MODWT transform with Haar wavelet
         MODWTTransform modwt = new MODWTTransform(new Haar1());
         
+        // Note: For better performance, you can inject optimized implementations:
+        // MODWTTransform modwt = new MODWTTransform(new Haar1(), 
+        //     new OptimizedFastFourierTransform(),
+        //     new OptimizedWaveletOperations());
+        
         // Forward MODWT - decompose to 3 levels
         // Level 1: captures 8-16 Hz (will contain our 15.6 Hz component)
         // Level 2: captures 4-8 Hz
@@ -129,6 +134,10 @@ public class MODWTExample {
         
         // Create MODWT transform with Daubechies-4 wavelet
         MODWTTransform modwt = new MODWTTransform(new Daubechies4());
+        
+        // For denoising with optimized performance:
+        // MODWTTransform modwt = new MODWTTransform(new Daubechies4(),
+        //     new FastFourierTransform(), new OptimizedWaveletOperations());
         
         // Forward transform
         double[][] coeffs = modwt.forwardMODWT(noisySignal, 4);
