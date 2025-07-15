@@ -202,10 +202,10 @@ public class OptimizedWavelet {
                 int k = 0;
                 for (; k + OptimizationConstants.UNROLL_FACTOR <= filterLength; k += OptimizationConstants.UNROLL_FACTOR) {
                     // Circular indexing with modulo optimization
-                    int idx0 = ((n - k) % signalLength + signalLength) % signalLength;
-                    int idx1 = ((n - k - 1) % signalLength + signalLength) % signalLength;
-                    int idx2 = ((n - k - 2) % signalLength + signalLength) % signalLength;
-                    int idx3 = ((n - k - 3) % signalLength + signalLength) % signalLength;
+                    int idx0 = circularIndex(n - k, signalLength);
+                    int idx1 = circularIndex(n - k - 1, signalLength);
+                    int idx2 = circularIndex(n - k - 2, signalLength);
+                    int idx3 = circularIndex(n - k - 3, signalLength);
                     
                     sum += signal[idx0] * filter[k]
                          + signal[idx1] * filter[k + 1]
