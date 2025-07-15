@@ -38,13 +38,27 @@ public class StandardWaveletOperations implements WaveletOperations {
                                     int signalLength, int filterLength, int stride) {
         double[] output = new double[signalLength];
         
-        for (int n = 0; n < signalLength; n += stride) {
-            double sum = 0.0;
-            for (int m = 0; m < filterLength; m++) {
-                int signalIndex = (n - m + signalLength) % signalLength;
-                sum += signal[signalIndex] * filter[m];
+        if (stride == 1) {
+            // Optimized case for stride = 1 (most common)
+            for (int n = 0; n < signalLength; n++) {
+                double sum = 0.0;
+                for (int m = 0; m < filterLength; m++) {
+                    int signalIndex = ((n - m) % signalLength + signalLength) % signalLength;
+                    sum += signal[signalIndex] * filter[m];
+                }
+                output[n] = sum;
             }
-            output[n / stride] = sum;
+        } else {
+            // General case: stride affects how we sample the filter
+            // This maintains consistency with OptimizedWavelet implementation
+            for (int n = 0; n < signalLength; n++) {
+                double sum = 0.0;
+                for (int m = 0; m < filterLength; m++) {
+                    int signalIndex = ((n - m * stride) % signalLength + signalLength) % signalLength;
+                    sum += signal[signalIndex] * filter[m];
+                }
+                output[n] = sum;
+            }
         }
         
         return output;
@@ -55,13 +69,27 @@ public class StandardWaveletOperations implements WaveletOperations {
                                            int signalLength, int filterLength, int stride) {
         double[] output = new double[signalLength];
         
-        for (int n = 0; n < signalLength; n++) {
-            double sum = 0.0;
-            for (int m = 0; m < filterLength; m++) {
-                int signalIndex = (n + m) % signalLength;
-                sum += signal[signalIndex] * filter[m];
+        if (stride == 1) {
+            // Optimized case for stride = 1 (most common)
+            for (int n = 0; n < signalLength; n++) {
+                double sum = 0.0;
+                for (int m = 0; m < filterLength; m++) {
+                    int signalIndex = (n + m) % signalLength;
+                    sum += signal[signalIndex] * filter[m];
+                }
+                output[n] = sum;
             }
-            output[n] = sum;
+        } else {
+            // General case: stride affects how we sample the filter
+            // This maintains consistency with OptimizedWavelet implementation
+            for (int n = 0; n < signalLength; n++) {
+                double sum = 0.0;
+                for (int m = 0; m < filterLength; m++) {
+                    int signalIndex = (n + m * stride) % signalLength;
+                    sum += signal[signalIndex] * filter[m];
+                }
+                output[n] = sum;
+            }
         }
         
         return output;

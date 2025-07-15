@@ -329,10 +329,10 @@ public class OptimizedWavelet {
                 int m = 0;
                 for (; m + OptimizationConstants.UNROLL_FACTOR <= filterLength; m += OptimizationConstants.UNROLL_FACTOR) {
                     // For adjoint operation, we add m instead of subtracting
-                    int idx0 = (n + m) % signalLength;
-                    int idx1 = (n + m + 1) % signalLength;
-                    int idx2 = (n + m + 2) % signalLength;
-                    int idx3 = (n + m + 3) % signalLength;
+                    int idx0 = circularIndex(n + m, signalLength);
+                    int idx1 = circularIndex(n + m + 1, signalLength);
+                    int idx2 = circularIndex(n + m + 2, signalLength);
+                    int idx3 = circularIndex(n + m + 3, signalLength);
                     
                     sum += signal[idx0] * filter[m]
                          + signal[idx1] * filter[m + 1]
@@ -342,7 +342,7 @@ public class OptimizedWavelet {
                 
                 // Handle remaining elements
                 for (; m < filterLength; m++) {
-                    int idx = (n + m) % signalLength;
+                    int idx = circularIndex(n + m, signalLength);
                     sum += signal[idx] * filter[m];
                 }
                 
@@ -353,7 +353,7 @@ public class OptimizedWavelet {
             for (int n = 0; n < signalLength; n++) {
                 double sum = 0.0;
                 for (int m = 0; m < filterLength; m++) {
-                    int idx = (n + m * stride) % signalLength;
+                    int idx = circularIndex(n + m * stride, signalLength);
                     sum += signal[idx] * filter[m];
                 }
                 result[n] = sum;

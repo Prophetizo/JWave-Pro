@@ -38,14 +38,18 @@ public interface WaveletOperations {
      * Perform circular convolution of a signal with a filter.
      * 
      * This operation is fundamental to wavelet transforms, computing:
-     * output[n] = sum_{m=0}^{M-1} signal[(n-m) mod N] * filter[m]
+     * - For stride=1: output[n] = sum_{m=0}^{M-1} signal[(n-m) mod N] * filter[m]
+     * - For stride>1: output[n] = sum_{m=0}^{M-1} signal[(n-m*stride) mod N] * filter[m]
+     * 
+     * Note: The output array always has the same length as the input signal.
+     * The stride parameter affects how the filter samples the signal, not the output size.
      * 
      * @param signal input signal
      * @param filter convolution filter (wavelet coefficients)
      * @param signalLength length of the signal (N)
      * @param filterLength length of the filter (M)
-     * @param stride stride for the convolution (1 for no downsampling)
-     * @return convolved output signal
+     * @param stride stride for filter sampling (typically 1 for MODWT)
+     * @return convolved output signal of length signalLength
      */
     double[] circularConvolve(double[] signal, double[] filter, 
                               int signalLength, int filterLength, int stride);
@@ -55,14 +59,18 @@ public interface WaveletOperations {
      * 
      * This is the adjoint operation of circular convolution, used in
      * inverse wavelet transforms. It computes:
-     * output[n] = sum_{m=0}^{M-1} signal[(n+m) mod N] * filter[m]
+     * - For stride=1: output[n] = sum_{m=0}^{M-1} signal[(n+m) mod N] * filter[m]
+     * - For stride>1: output[n] = sum_{m=0}^{M-1} signal[(n+m*stride) mod N] * filter[m]
+     * 
+     * Note: The output array always has the same length as the input signal.
+     * The stride parameter affects how the filter samples the signal, not the output size.
      * 
      * @param signal input signal
      * @param filter convolution filter (wavelet coefficients)
      * @param signalLength length of the signal (N)
      * @param filterLength length of the filter (M)
-     * @param stride stride for the convolution (1 for no upsampling)
-     * @return adjoint convolved output signal
+     * @param stride stride for filter sampling (typically 1 for MODWT)
+     * @return adjoint convolved output signal of length signalLength
      */
     double[] circularConvolveAdjoint(double[] signal, double[] filter,
                                      int signalLength, int filterLength, int stride);
