@@ -1,7 +1,7 @@
 /**
  * JWave is distributed under the MIT License (MIT); this file is part of.
  *
- * Copyright (c) 2025 Prophetizo Christian (graetz23@gmail.com)
+ * Copyright (c) 2025 Prophetizo
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -27,13 +27,18 @@ import jwave.datatypes.natives.Complex;
 import jwave.datatypes.natives.OptimizedComplex;
 import jwave.transforms.wavelets.continuous.MorletWavelet;
 import jwave.exceptions.JWaveException;
+import org.junit.Ignore;
 
 /**
  * Demonstration of CWT performance improvements with SIMD optimizations for 1024 samples.
  * 
+ * This is a performance demo, not a test. It's marked with @Ignore to prevent
+ * it from running during automated test execution.
+ * 
  * @author Stephen Romano
  * @date 15.07.2025
  */
+@Ignore("Performance demo - not a test")
 public class CWT1024PerformanceDemo {
     
     private static final int SIGNAL_LENGTH = 1024;

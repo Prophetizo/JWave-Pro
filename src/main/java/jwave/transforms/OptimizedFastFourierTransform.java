@@ -108,8 +108,7 @@ public class OptimizedFastFourierTransform extends FastFourierTransform {
         bitReversalOptimized(real, imag);
         
         // Pre-compute twiddle factors for better cache usage
-        double[][] twiddleReal = precomputeTwiddleFactors(n, inverse, true);
-        double[][] twiddleImag = precomputeTwiddleFactors(n, inverse, false);
+        TwiddleFactors twiddles = precomputeTwiddleFactors(n, inverse);
         
         // Cooley-Tukey with optimizations
         int logN = Integer.numberOfTrailingZeros(n);
@@ -119,8 +118,8 @@ public class OptimizedFastFourierTransform extends FastFourierTransform {
             int m2 = m >> 1;       // m/2
             
             // Get pre-computed twiddle factors for this stage
-            double[] wReal = twiddleReal[s - 1];
-            double[] wImag = twiddleImag[s - 1];
+            double[] wReal = twiddles.real[s - 1];
+            double[] wImag = twiddles.imag[s - 1];
             
             // Process all groups
             for (int k = 0; k < n; k += m) {
@@ -173,27 +172,45 @@ public class OptimizedFastFourierTransform extends FastFourierTransform {
     /**
      * Pre-compute twiddle factors for all stages.
      */
-    private double[][] precomputeTwiddleFactors(int n, boolean inverse, boolean isReal) {
+    /**
+     * Container for pre-computed twiddle factors.
+     */
+    private static class TwiddleFactors {
+        final double[][] real;
+        final double[][] imag;
+        
+        TwiddleFactors(double[][] real, double[][] imag) {
+            this.real = real;
+            this.imag = imag;
+        }
+    }
+    
+    /**
+     * Pre-compute both real and imaginary twiddle factors in a single pass.
+     * This reduces computation time and improves cache locality.
+     */
+    private TwiddleFactors precomputeTwiddleFactors(int n, boolean inverse) {
         int logN = Integer.numberOfTrailingZeros(n);
-        double[][] twiddles = new double[logN][];
+        double[][] twiddleReal = new double[logN][];
+        double[][] twiddleImag = new double[logN][];
         
         for (int s = 1; s <= logN; s++) {
             int m = 1 << s;
             int m2 = m >> 1;
-            twiddles[s - 1] = new double[m2];
+            twiddleReal[s - 1] = new double[m2];
+            twiddleImag[s - 1] = new double[m2];
             
             double angle = 2 * Math.PI / m * (inverse ? 1 : -1);
             
+            // Compute both real and imaginary parts together
             for (int j = 0; j < m2; j++) {
-                if (isReal) {
-                    twiddles[s - 1][j] = Math.cos(angle * j);
-                } else {
-                    twiddles[s - 1][j] = Math.sin(angle * j);
-                }
+                double theta = angle * j;
+                twiddleReal[s - 1][j] = Math.cos(theta);
+                twiddleImag[s - 1][j] = Math.sin(theta);
             }
         }
         
-        return twiddles;
+        return new TwiddleFactors(twiddleReal, twiddleImag);
     }
     
     /**
