@@ -23,11 +23,10 @@
  */
 package jwave.examples;
 
-import jwave.Transform;
 import jwave.transforms.ContinuousWaveletTransform;
-import jwave.transforms.wavelets.continuous.MexicanHat;
-import jwave.transforms.wavelets.continuous.Morlet;
-import jwave.transforms.wavelets.continuous.GaussianWavelet;
+import jwave.transforms.CWTResult;
+import jwave.transforms.wavelets.continuous.MexicanHatWavelet;
+import jwave.transforms.wavelets.continuous.MorletWavelet;
 import jwave.datatypes.natives.Complex;
 
 /**
@@ -49,14 +48,8 @@ public class OptimizedCWTExample {
         // Example 2: Time-frequency analysis
         timeFrequencyAnalysisExample();
         
-        // Example 3: Different mother wavelets
-        motherWaveletComparisonExample();
-        
-        // Example 4: Chirp signal analysis
-        chirpSignalAnalysisExample();
-        
-        // Example 5: Multi-component signal decomposition
-        multiComponentAnalysisExample();
+        // Example 3: Multi-scale analysis
+        multiScaleAnalysisExample();
     }
     
     /**
@@ -82,9 +75,8 @@ public class OptimizedCWTExample {
         }
         
         // Create CWT with Morlet wavelet (optimized version is used internally)
-        Morlet motherWavelet = new Morlet();
+        MorletWavelet motherWavelet = new MorletWavelet();
         ContinuousWaveletTransform cwt = new ContinuousWaveletTransform(motherWavelet);
-        Transform transform = new Transform(cwt);
         
         // Define scales to analyze (corresponding to frequencies)
         int numScales = 32;
@@ -94,14 +86,12 @@ public class OptimizedCWTExample {
             scales[i] = 1.0 + i * 49.0 / (numScales - 1);
         }
         
-        // Perform CWT for each scale
-        System.out.println("Computing CWT coefficients...");
-        double[][] cwtCoefficients = new double[numScales][signalLength];
+        // Perform CWT using optimized FFT method
+        System.out.println("Computing CWT coefficients using optimized FFT method...");
+        CWTResult cwtResult = cwt.transformFFT(signal, scales, samplingRate);
         
-        for (int scaleIdx = 0; scaleIdx < numScales; scaleIdx++) {
-            cwt.setScale(scales[scaleIdx]);
-            cwtCoefficients[scaleIdx] = transform.forward(signal);
-        }
+        // Extract coefficients
+        Complex[][] coefficients = cwtResult.getCoefficients();
         
         // Find maximum coefficient locations
         System.out.println("\nScale analysis (peak locations):");
@@ -110,7 +100,7 @@ public class OptimizedCWTExample {
             int maxIdx = 0;
             
             for (int i = 0; i < signalLength; i++) {
-                double mag = Math.abs(cwtCoefficients[scaleIdx][i]);
+                double mag = coefficients[scaleIdx][i].getMag();
                 if (mag > maxMag) {
                     maxMag = mag;
                     maxIdx = i;
@@ -163,9 +153,8 @@ public class OptimizedCWTExample {
         }
         
         // Setup CWT with Mexican Hat wavelet
-        MexicanHat motherWavelet = new MexicanHat();
+        MexicanHatWavelet motherWavelet = new MexicanHatWavelet();
         ContinuousWaveletTransform cwt = new ContinuousWaveletTransform(motherWavelet);
-        Transform transform = new Transform(cwt);
         
         // Define frequency range to analyze
         double minFreq = 20.0;
@@ -182,21 +171,13 @@ public class OptimizedCWTExample {
             scales[i] = centerFreq * samplingRate / frequencies[i];
         }
         
-        // Compute scalogram
-        double[][] scalogram = new double[numFreqs][signalLength];
-        
-        for (int freqIdx = 0; freqIdx < numFreqs; freqIdx++) {
-            cwt.setScale(scales[freqIdx]);
-            double[] coeffs = transform.forward(signal);
-            
-            // Store magnitude
-            for (int i = 0; i < signalLength; i++) {
-                scalogram[freqIdx][i] = Math.abs(coeffs[i]);
-            }
-        }
+        // Compute scalogram using parallel FFT method for better performance
+        System.out.println("Computing scalogram using parallel FFT method...");
+        CWTResult cwtResult = cwt.transformFFTParallel(signal, scales, samplingRate);
+        Complex[][] coefficients = cwtResult.getCoefficients();
         
         // Analyze energy distribution over time
-        System.out.println("Time-frequency energy distribution:");
+        System.out.println("\nTime-frequency energy distribution:");
         double[] timeWindows = {0.05, 0.15, 0.25, 0.35, 0.45};
         
         for (double t : timeWindows) {
@@ -205,9 +186,10 @@ public class OptimizedCWTExample {
             
             // Find dominant frequencies
             for (int freqIdx = 0; freqIdx < numFreqs; freqIdx++) {
-                if (scalogram[freqIdx][timeIdx] > 0.3) { // Threshold
+                double magnitude = coefficients[freqIdx][timeIdx].getMag();
+                if (magnitude > 0.3) { // Threshold
                     System.out.printf("  Active frequency: %.1f Hz (magnitude: %.2f)\n",
-                                    frequencies[freqIdx], scalogram[freqIdx][timeIdx]);
+                                    frequencies[freqIdx], magnitude);
                 }
             }
         }
@@ -215,81 +197,13 @@ public class OptimizedCWTExample {
     }
     
     /**
-     * Example 3: Comparison of different mother wavelets
+     * Example 3: Multi-scale analysis
      */
-    private static void motherWaveletComparisonExample() {
-        System.out.println("Example 3: Mother Wavelet Comparison");
-        System.out.println("------------------------------------");
+    private static void multiScaleAnalysisExample() {
+        System.out.println("Example 3: Multi-Scale Analysis");
+        System.out.println("-------------------------------");
         
-        // Create a test signal with sharp transitions
-        int signalLength = 256;
-        double[] signal = new double[signalLength];
-        
-        // Square wave with some smoothing
-        for (int i = 0; i < signalLength; i++) {
-            if ((i / 32) % 2 == 0) {
-                signal[i] = 1.0;
-            } else {
-                signal[i] = -1.0;
-            }
-        }
-        
-        // Apply smoothing filter
-        for (int iter = 0; iter < 3; iter++) {
-            double[] smoothed = new double[signalLength];
-            for (int i = 1; i < signalLength - 1; i++) {
-                smoothed[i] = 0.25 * signal[i-1] + 0.5 * signal[i] + 0.25 * signal[i+1];
-            }
-            signal = smoothed;
-        }
-        
-        // Test different wavelets
-        double scale = 16.0;
-        
-        // Morlet wavelet (good frequency localization)
-        Morlet morlet = new Morlet();
-        ContinuousWaveletTransform cwtMorlet = new ContinuousWaveletTransform(morlet);
-        cwtMorlet.setScale(scale);
-        Transform transformMorlet = new Transform(cwtMorlet);
-        double[] morletCoeffs = transformMorlet.forward(signal);
-        
-        // Mexican Hat wavelet (good time localization)
-        MexicanHat mexicanHat = new MexicanHat();
-        ContinuousWaveletTransform cwtMexican = new ContinuousWaveletTransform(mexicanHat);
-        cwtMexican.setScale(scale);
-        Transform transformMexican = new Transform(cwtMexican);
-        double[] mexicanCoeffs = transformMexican.forward(signal);
-        
-        // Gaussian wavelet (1st derivative)
-        GaussianWavelet gaussian1 = new GaussianWavelet(1); // 1st derivative
-        ContinuousWaveletTransform cwtGaussian = new ContinuousWaveletTransform(gaussian1);
-        cwtGaussian.setScale(scale);
-        Transform transformGaussian = new Transform(cwtGaussian);
-        double[] gaussianCoeffs = transformGaussian.forward(signal);
-        
-        // Compare edge detection capabilities
-        System.out.println("Edge detection comparison at scale " + scale + ":");
-        
-        // Find transitions (edges) in original signal
-        for (int i = 1; i < signalLength - 1; i++) {
-            if (Math.abs(signal[i] - signal[i-1]) > 0.5) {
-                System.out.printf("\nEdge detected at position %d:\n", i);
-                System.out.printf("  Morlet magnitude: %.3f\n", Math.abs(morletCoeffs[i]));
-                System.out.printf("  Mexican Hat magnitude: %.3f\n", Math.abs(mexicanCoeffs[i]));
-                System.out.printf("  Gaussian magnitude: %.3f\n", Math.abs(gaussianCoeffs[i]));
-            }
-        }
-        System.out.println();
-    }
-    
-    /**
-     * Example 4: Analyze a chirp signal
-     */
-    private static void chirpSignalAnalysisExample() {
-        System.out.println("Example 4: Chirp Signal Analysis");
-        System.out.println("--------------------------------");
-        
-        // Create a linear chirp signal
+        // Create a chirp signal
         int signalLength = 1024;
         double samplingRate = 1000.0;
         double[] signal = new double[signalLength];
@@ -307,144 +221,62 @@ public class OptimizedCWTExample {
         }
         
         // Use Morlet wavelet for time-frequency analysis
-        Morlet morlet = new Morlet();
-        morlet.setOmega0(6.0); // Adjust time-frequency resolution
+        MorletWavelet morlet = new MorletWavelet();
         ContinuousWaveletTransform cwt = new ContinuousWaveletTransform(morlet);
-        Transform transform = new Transform(cwt);
         
-        // Analyze at specific time points
+        // Define logarithmic scale distribution
+        int numScales = 64;
+        double[] scales = new double[numScales];
+        double minScale = 2.0;
+        double maxScale = 100.0;
+        
+        // Logarithmic distribution of scales
+        for (int i = 0; i < numScales; i++) {
+            double logMin = Math.log(minScale);
+            double logMax = Math.log(maxScale);
+            double logScale = logMin + (logMax - logMin) * i / (numScales - 1);
+            scales[i] = Math.exp(logScale);
+        }
+        
+        // Perform CWT
+        System.out.println("Performing multi-scale CWT analysis...");
+        CWTResult cwtResult = cwt.transformFFT(signal, scales, samplingRate);
+        
+        // Analyze instantaneous frequency tracking
+        System.out.println("\nInstantaneous frequency tracking:");
         double[] timePoints = {0.1, 0.3, 0.5, 0.7, 0.9};
-        System.out.println("Instantaneous frequency tracking:");
         
         for (double t : timePoints) {
             int timeIdx = (int)(t * samplingRate);
             double expectedFreq = f0 + (f1 - f0) * t / T;
             
-            // Find best matching scale
-            double bestScale = 0;
+            // Find scale with maximum response
             double maxMag = 0;
+            int bestScaleIdx = 0;
+            Complex[][] coeffs = cwtResult.getCoefficients();
             
-            for (double scale = 2; scale < 100; scale += 0.5) {
-                cwt.setScale(scale);
-                double[] coeffs = transform.forward(signal);
-                double mag = Math.abs(coeffs[timeIdx]);
-                
+            for (int i = 0; i < numScales; i++) {
+                double mag = coeffs[i][timeIdx].getMag();
                 if (mag > maxMag) {
                     maxMag = mag;
-                    bestScale = scale;
+                    bestScaleIdx = i;
                 }
             }
             
             // Convert scale to frequency
-            double detectedFreq = morlet.getCenterFrequency() * samplingRate / bestScale;
+            double centerFreq = morlet.getCenterFrequency();
+            double detectedFreq = centerFreq * samplingRate / scales[bestScaleIdx];
             
             System.out.printf("  t=%.1f s: Expected %.1f Hz, Detected %.1f Hz (error: %.1f%%)\n",
                             t, expectedFreq, detectedFreq, 
                             100 * Math.abs(detectedFreq - expectedFreq) / expectedFreq);
-        }
-        System.out.println();
-    }
-    
-    /**
-     * Example 5: Multi-component signal decomposition
-     */
-    private static void multiComponentAnalysisExample() {
-        System.out.println("Example 5: Multi-Component Signal Decomposition");
-        System.out.println("----------------------------------------------");
-        
-        // Create a complex multi-component signal
-        int signalLength = 512;
-        double samplingRate = 500.0;
-        double[] signal = new double[signalLength];
-        
-        // Component 1: Constant 25 Hz
-        // Component 2: Amplitude modulated 60 Hz
-        // Component 3: Frequency modulated around 100 Hz
-        // Component 4: Transient burst at 150 Hz
-        
-        for (int i = 0; i < signalLength; i++) {
-            double t = i / samplingRate;
-            
-            // Component 1
-            signal[i] += 0.8 * Math.sin(2 * Math.PI * 25 * t);
-            
-            // Component 2 (AM)
-            double amEnvelope = 1 + 0.5 * Math.cos(2 * Math.PI * 2 * t);
-            signal[i] += amEnvelope * Math.sin(2 * Math.PI * 60 * t);
-            
-            // Component 3 (FM)
-            double fmPhase = 2 * Math.PI * (100 * t + 10 * Math.sin(2 * Math.PI * 3 * t));
-            signal[i] += 0.6 * Math.sin(fmPhase);
-            
-            // Component 4 (transient)
-            if (t > 0.5 && t < 0.7) {
-                double burst = Math.exp(-10 * Math.pow(t - 0.6, 2));
-                signal[i] += burst * Math.sin(2 * Math.PI * 150 * t);
-            }
-        }
-        
-        // Setup CWT
-        Morlet morlet = new Morlet();
-        ContinuousWaveletTransform cwt = new ContinuousWaveletTransform(morlet);
-        Transform transform = new Transform(cwt);
-        
-        // Define scales for components
-        double[] targetFreqs = {25, 60, 100, 150};
-        double centerFreq = morlet.getCenterFrequency();
-        
-        System.out.println("Component extraction:");
-        
-        for (double freq : targetFreqs) {
-            double scale = centerFreq * samplingRate / freq;
-            cwt.setScale(scale);
-            double[] coeffs = transform.forward(signal);
-            
-            // Calculate energy and characteristics
-            double totalEnergy = 0;
-            double maxMag = 0;
-            int maxIdx = 0;
-            
-            for (int i = 0; i < signalLength; i++) {
-                double mag = Math.abs(coeffs[i]);
-                totalEnergy += mag * mag;
-                if (mag > maxMag) {
-                    maxMag = mag;
-                    maxIdx = i;
-                }
-            }
-            
-            System.out.printf("\n  Component at %.0f Hz:\n", freq);
-            System.out.printf("    Total energy: %.2f\n", totalEnergy);
-            System.out.printf("    Peak magnitude: %.2f at t=%.2f s\n", 
-                            maxMag, maxIdx / samplingRate);
-            
-            // Detect modulation characteristics
-            if (freq == 60) {
-                // Check for amplitude modulation
-                double[] envelope = new double[signalLength];
-                for (int i = 0; i < signalLength; i++) {
-                    envelope[i] = Math.abs(coeffs[i]);
-                }
-                System.out.println("    Detected: Amplitude modulation");
-            } else if (freq == 100) {
-                // Check for frequency modulation
-                System.out.println("    Detected: Frequency modulation");
-            } else if (freq == 150) {
-                // Check for transient
-                double duration = 0;
-                for (int i = 0; i < signalLength; i++) {
-                    if (Math.abs(coeffs[i]) > 0.1) {
-                        duration += 1.0 / samplingRate;
-                    }
-                }
-                System.out.printf("    Detected: Transient burst, duration %.2f s\n", duration);
-            }
         }
         
         System.out.println("\nOptimization Note:");
         System.out.println("The CWT implementation automatically uses:");
         System.out.println("- OptimizedFastFourierTransform for frequency domain operations");
         System.out.println("- OptimizedComplex for bulk complex multiplications");
+        System.out.println("- Parallel processing for multiple scales");
         System.out.println("- Resulting in 2-3x performance improvement over standard implementation");
     }
 }

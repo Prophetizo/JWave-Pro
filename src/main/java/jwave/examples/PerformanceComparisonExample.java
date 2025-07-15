@@ -31,11 +31,11 @@ import jwave.transforms.MODWTTransform;
 import jwave.transforms.ContinuousWaveletTransform;
 import jwave.transforms.wavelets.Wavelet;
 import jwave.transforms.wavelets.OptimizedWavelet;
-import jwave.transforms.wavelets.OptimizedComplex;
+import jwave.datatypes.natives.OptimizedComplex;
 import jwave.transforms.wavelets.daubechies.Daubechies4;
 import jwave.transforms.wavelets.daubechies.Daubechies8;
 import jwave.transforms.wavelets.haar.Haar1;
-import jwave.transforms.wavelets.continuous.Morlet;
+import jwave.transforms.wavelets.continuous.MorletWavelet;
 import jwave.datatypes.natives.Complex;
 
 import java.util.concurrent.TimeUnit;
@@ -218,7 +218,7 @@ public class PerformanceComparisonExample {
                          "Size", "Time (ms)", "Scale", "Samples/ms");
         System.out.println("-".repeat(50));
         
-        Morlet motherWavelet = new Morlet();
+        MorletWavelet motherWavelet = new MorletWavelet();
         ContinuousWaveletTransform cwt = new ContinuousWaveletTransform(motherWavelet);
         Transform transform = new Transform(cwt);
         
@@ -228,27 +228,23 @@ public class PerformanceComparisonExample {
             // Generate test data
             double[] signal = generateTestSignal(size);
             
-            for (double scale : scales) {
-                cwt.setScale(scale);
-                
-                // Warmup
-                for (int i = 0; i < 10; i++) {
-                    transform.forward(signal);
-                }
-                
-                // Benchmark
-                long startTime = System.nanoTime();
-                for (int i = 0; i < 100; i++) {
-                    transform.forward(signal);
-                }
-                long endTime = System.nanoTime();
-                
-                double timeMs = (endTime - startTime) / 1_000_000.0 / 100;
-                double samplesPerMs = size / timeMs;
-                
-                System.out.printf("%-8d | %12.2f | %8.1f | %12.0f\n",
-                                size, timeMs, scale, samplesPerMs);
+            // Warmup with all scales
+            for (int i = 0; i < 10; i++) {
+                cwt.transformFFT(signal, scales, 1000.0);
             }
+            
+            // Benchmark
+            long startTime = System.nanoTime();
+            for (int i = 0; i < 100; i++) {
+                cwt.transformFFT(signal, scales, 1000.0);
+            }
+            long endTime = System.nanoTime();
+            
+            double timeMs = (endTime - startTime) / 1_000_000.0 / 100;
+            double samplesPerMs = (size * scales.length) / timeMs;
+            
+            System.out.printf("%-8d | %12.2f | %8s | %12.0f\n",
+                            size, timeMs, "4 scales", samplesPerMs);
         }
         System.out.println();
     }

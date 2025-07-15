@@ -24,7 +24,7 @@
 package jwave.examples;
 
 import jwave.datatypes.natives.Complex;
-import jwave.transforms.wavelets.OptimizedComplex;
+import jwave.datatypes.natives.OptimizedComplex;
 import java.util.Arrays;
 
 /**
@@ -147,7 +147,8 @@ public class OptimizedComplexExample {
         }
         
         // Convert back to Complex array
-        Complex[] reconstructed = OptimizedComplex.fromSeparateArrays(realPart, imagPart);
+        Complex[] reconstructed = new Complex[length];
+        OptimizedComplex.fromSeparateArrays(realPart, imagPart, reconstructed);
         
         System.out.println("\nAfter normalization:");
         System.out.printf("  First element magnitude: %.6f\n", reconstructed[0].getMag());

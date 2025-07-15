@@ -251,7 +251,7 @@ public class OptimizedFFTExample {
         // Calculate power spectral density
         double[] psd = new double[signalLength / 2];
         for (int i = 0; i < psd.length; i++) {
-            psd[i] = spectrum[i].getMag2() / signalLength;
+            psd[i] = spectrum[i].getMag() * spectrum[i].getMag() / signalLength;
         }
         
         // Find peaks
@@ -285,7 +285,7 @@ public class OptimizedFFTExample {
     private static double calculateEnergy(Complex[] signal) {
         double energy = 0;
         for (Complex c : signal) {
-            energy += c.getMag2();
+            energy += c.getMag() * c.getMag();
         }
         return energy;
     }
