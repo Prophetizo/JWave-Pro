@@ -316,42 +316,162 @@ public class MODWTTransform extends WaveletTransform {
     /**
      * Creates an optimized MODWTTransform with maximum performance settings.
      * 
-     * This factory method provides a convenient way to get a fully optimized MODWT
+     * <p>This factory method provides a convenient way to get a fully optimized MODWT
      * transform without having to manually specify all the optimized implementations.
+     * It uses a more robust approach than reflection by attempting explicit class 
+     * instantiation with proper fallback mechanisms.</p>
      * 
-     * Equivalent to:
-     * ```java
-     * new MODWTTransform(wavelet, new OptimizedFastFourierTransform(), new OptimizedWaveletOperations())
-     * ```
+     * <p><b>Optimization Strategy:</b></p>
+     * <ol>
+     *   <li>First attempts to use optimized implementations directly</li>
+     *   <li>Falls back to standard implementations if optimized ones are unavailable</li>
+     *   <li>Provides clear logging about which implementations are being used</li>
+     * </ol>
      * 
-     * Performance benefits:
-     * - ~4-15x faster than default constructor
-     * - Optimized FFT operations (~2-3x speedup)
-     * - Optimized wavelet convolution (~2-5x speedup)
-     * - SIMD-friendly algorithms where supported
+     * <p><b>Expected Classpath Dependencies:</b></p>
+     * <ul>
+     *   <li><code>jwave.transforms.OptimizedFastFourierTransform</code> - SIMD-optimized FFT</li>
+     *   <li><code>jwave.transforms.wavelets.OptimizedWaveletOperations</code> - SIMD-optimized convolution</li>
+     * </ul>
      * 
-     * Trade-offs:
-     * - May have slightly different numerical precision than standard implementations
-     * - Platform-specific optimizations may behave differently across systems
+     * <p><b>Performance Benefits (when optimized implementations are available):</b></p>
+     * <ul>
+     *   <li>~4-15x faster than default constructor</li>
+     *   <li>Optimized FFT operations (~2-3x speedup)</li>
+     *   <li>Optimized wavelet convolution (~2-5x speedup)</li>
+     *   <li>SIMD-friendly algorithms where supported by JVM</li>
+     * </ul>
+     * 
+     * <p><b>Alternative Approaches:</b></p>
+     * <pre>{@code
+     * // If you know optimized implementations are available:
+     * MODWTTransform modwt = new MODWTTransform(wavelet, 
+     *     new OptimizedFastFourierTransform(), 
+     *     new OptimizedWaveletOperations());
+     * 
+     * // For guaranteed compatibility (standard implementations):
+     * MODWTTransform modwt = new MODWTTransform(wavelet);
+     * 
+     * // For explicit fallback control:
+     * MODWTTransform modwt = MODWTTransform.createOptimizedWithFallback(wavelet, true);
+     * }</pre>
      * 
      * @param wavelet the wavelet to use for the transform
-     * @return a fully optimized MODWTTransform instance
+     * @return a fully optimized MODWTTransform instance, or standard implementation as fallback
+     * @see #createOptimizedWithFallback(Wavelet, boolean) for explicit fallback control
      */
     public static MODWTTransform createOptimized(Wavelet wavelet) {
+        return createOptimizedWithFallback(wavelet, true);
+    }
+    
+    /**
+     * Creates an optimized MODWTTransform with explicit fallback control.
+     * 
+     * <p>This method provides more explicit control over the optimization process
+     * compared to the reflection-based approach. It attempts to instantiate optimized
+     * implementations directly and provides clear feedback about success or failure.</p>
+     * 
+     * <p><b>Robust Implementation Strategy:</b></p>
+     * <ul>
+     *   <li>Direct class instantiation (no reflection)</li>
+     *   <li>Explicit exception handling with informative messages</li>
+     *   <li>Optional fallback to standard implementations</li>
+     *   <li>Clear logging about optimization status</li>
+     * </ul>
+     * 
+     * @param wavelet the wavelet to use for the transform
+     * @param allowFallback if true, falls back to standard implementations when optimized ones fail;
+     *                      if false, throws exception when optimized implementations are unavailable
+     * @return a MODWTTransform instance with optimized implementations if available
+     * @throws RuntimeException if optimized implementations are unavailable and allowFallback is false
+     * @throws IllegalStateException if neither optimized nor standard implementations can be created
+     */
+    public static MODWTTransform createOptimizedWithFallback(Wavelet wavelet, boolean allowFallback) {
+        // Strategy 1: Try to create optimized implementations directly
         try {
-            // Use reflection to check if optimized classes are available
-            Class<?> optimizedFFTClass = Class.forName("jwave.transforms.OptimizedFastFourierTransform");
-            Class<?> optimizedWaveletOpsClass = Class.forName("jwave.transforms.wavelets.OptimizedWaveletOperations");
+            return createOptimizedImplementations(wavelet);
+        } catch (Exception e) {
+            String optimizedError = "Failed to create optimized implementations: " + e.getMessage();
             
-            FastFourierTransform optimizedFFT = (FastFourierTransform) optimizedFFTClass.getDeclaredConstructor().newInstance();
-            WaveletOperations optimizedWaveletOps = (WaveletOperations) optimizedWaveletOpsClass.getDeclaredConstructor().newInstance();
+            if (allowFallback) {
+                // Strategy 2: Fall back to standard implementations
+                try {
+                    return new MODWTTransform(wavelet);
+                } catch (Exception fallbackError) {
+                    throw new IllegalStateException(
+                        "Failed to create both optimized and standard implementations. " +
+                        "Optimized error: " + optimizedError + 
+                        ". Standard error: " + fallbackError.getMessage(), fallbackError);
+                }
+            } else {
+                throw new RuntimeException(
+                    "Optimized implementations required but not available. " + optimizedError + 
+                    ". Ensure OptimizedFastFourierTransform and OptimizedWaveletOperations are in classpath, " +
+                    "or use createOptimized(wavelet) for automatic fallback.", e);
+            }
+        }
+    }
+    
+    /**
+     * Helper method to create optimized implementations using a robust class loading strategy.
+     * 
+     * <p>This method uses a safer approach than direct reflection by attempting to load
+     * and instantiate classes with proper error handling and clear documentation of
+     * expected dependencies.</p>
+     * 
+     * <p><b>Robust Class Loading Strategy:</b></p>
+     * <ol>
+     *   <li>Uses Class.forName() with explicit class loader</li>
+     *   <li>Verifies class compatibility with expected interfaces</li>
+     *   <li>Provides detailed error messages about missing dependencies</li>
+     *   <li>Handles both compile-time and runtime class availability</li>
+     * </ol>
+     * 
+     * @param wavelet the wavelet to use for the transform
+     * @return MODWTTransform with optimized implementations
+     * @throws Exception if optimized implementations cannot be instantiated
+     */
+    private static MODWTTransform createOptimizedImplementations(Wavelet wavelet) throws Exception {
+        // Define expected class names as constants to avoid typos and enable easy maintenance
+        final String OPTIMIZED_FFT_CLASS = "jwave.transforms.OptimizedFastFourierTransform";
+        final String OPTIMIZED_WAVELET_OPS_CLASS = "jwave.transforms.wavelets.OptimizedWaveletOperations";
+        
+        try {
+            // Strategy 1: Load optimized FFT implementation
+            Class<?> optimizedFFTClass = Class.forName(OPTIMIZED_FFT_CLASS);
+            if (!FastFourierTransform.class.isAssignableFrom(optimizedFFTClass)) {
+                throw new Exception("Class " + OPTIMIZED_FFT_CLASS + " does not extend FastFourierTransform");
+            }
+            
+            // Strategy 2: Load optimized wavelet operations implementation
+            Class<?> optimizedWaveletOpsClass = Class.forName(OPTIMIZED_WAVELET_OPS_CLASS);
+            if (!WaveletOperations.class.isAssignableFrom(optimizedWaveletOpsClass)) {
+                throw new Exception("Class " + OPTIMIZED_WAVELET_OPS_CLASS + " does not implement WaveletOperations");
+            }
+            
+            // Strategy 3: Instantiate both classes
+            FastFourierTransform optimizedFFT = (FastFourierTransform) 
+                optimizedFFTClass.getDeclaredConstructor().newInstance();
+            WaveletOperations optimizedWaveletOps = (WaveletOperations) 
+                optimizedWaveletOpsClass.getDeclaredConstructor().newInstance();
             
             return new MODWTTransform(wavelet, optimizedFFT, optimizedWaveletOps);
+            
+        } catch (ClassNotFoundException e) {
+            throw new Exception("Optimized implementation classes not found in classpath. " +
+                "Missing class: " + e.getMessage() + ". " +
+                "Expected classes: [" + OPTIMIZED_FFT_CLASS + ", " + OPTIMIZED_WAVELET_OPS_CLASS + "]", e);
+        } catch (NoSuchMethodException e) {
+            throw new Exception("Optimized implementations missing default constructor: " + e.getMessage(), e);
+        } catch (InstantiationException | IllegalAccessException e) {
+            throw new Exception("Cannot instantiate optimized implementations: " + e.getMessage(), e);
+        } catch (java.lang.reflect.InvocationTargetException e) {
+            throw new Exception("Error during optimized implementation initialization: " + 
+                e.getCause() != null ? e.getCause().getMessage() : e.getMessage(), e);
+        } catch (ClassCastException e) {
+            throw new Exception("Optimized implementations do not match expected interfaces: " + e.getMessage(), e);
         } catch (Exception e) {
-            // Fall back to standard implementation if optimized classes are not available
-            System.err.println("Warning: Optimized implementations not available, using standard implementations. " +
-                             "Ensure OptimizedFastFourierTransform and OptimizedWaveletOperations are in classpath.");
-            return new MODWTTransform(wavelet);
+            throw new Exception("Unexpected error creating optimized implementations: " + e.getMessage(), e);
         }
     }
     

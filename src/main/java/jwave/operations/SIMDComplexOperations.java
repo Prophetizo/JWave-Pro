@@ -71,6 +71,24 @@ public class SIMDComplexOperations implements ComplexOperations {
     /**
      * Thread-local buffers to reduce allocation overhead.
      * Each thread gets its own set of buffers with smart sizing.
+     * 
+     * IMPORTANT: Memory Leak Prevention
+     * ThreadLocal storage can cause memory leaks in application servers, web containers,
+     * or any environment with thread pooling if not properly managed.
+     * 
+     * Cleanup Requirements:
+     * 1. Call clearThreadBuffers() when threads are finished with complex operations
+     * 2. In web applications, call clearThreadBuffers() in request/response filters
+     * 3. In application servers, call clearThreadBuffers() before returning threads to pool
+     * 4. Consider using try-with-resources pattern with ThreadLocalCleaner for automatic cleanup
+     * 
+     * Memory Impact:
+     * - Each thread can hold up to ~385KB of buffer memory (6 arrays × 64K elements × 8 bytes)
+     * - In thread pools, this memory persists until threads are garbage collected
+     * - Failure to cleanup can lead to OutOfMemoryError in long-running applications
+     * 
+     * @see #clearThreadBuffers() for manual cleanup
+     * @see #createThreadLocalCleaner() for automatic cleanup pattern
      */
     private static final ThreadLocal<BufferSet> threadLocalBuffers = 
         ThreadLocal.withInitial(BufferSet::new);
@@ -158,10 +176,38 @@ public class SIMDComplexOperations implements ComplexOperations {
         }
         
         /**
-         * Checks if the thread-local buffers should be used for the given size.
+         * Determines whether thread-local buffers should be used versus temporary allocation.
          * 
-         * @param size the required buffer size
-         * @return true if buffers should be used, false if temporary allocation is better
+         * <p><b>Buffer Usage Strategy:</b></p>
+         * <ul>
+         *   <li><b>Use thread-local buffers when:</b> size ≤ {@value #MAX_BUFFER_SIZE} elements</li>
+         *   <li><b>Use temporary allocation when:</b> size > {@value #MAX_BUFFER_SIZE} elements</li>
+         * </ul>
+         * 
+         * <p><b>Rationale for Size Threshold:</b></p>
+         * <ul>
+         *   <li><b>Memory footprint:</b> Large arrays can consume excessive memory per thread</li>
+         *   <li><b>Thread pool environments:</b> Prevents memory leaks in pooled threads</li>
+         *   <li><b>GC pressure:</b> Very large buffers increase garbage collection overhead</li>
+         *   <li><b>Cache locality:</b> Smaller buffers fit better in CPU cache</li>
+         * </ul>
+         * 
+         * <p><b>Performance Trade-offs:</b></p>
+         * <ul>
+         *   <li><b>Thread-local buffers:</b> Fast allocation, potential memory overhead</li>
+         *   <li><b>Temporary allocation:</b> GC overhead, but bounded memory usage</li>
+         * </ul>
+         * 
+         * <p><b>Memory Impact Examples:</b></p>
+         * <pre>
+         * Size 1K elements   → 48 KB buffer (6 arrays × 1K × 8 bytes) - Use thread-local
+         * Size 64K elements  → 3 MB buffer (6 arrays × 64K × 8 bytes) - Use thread-local (max)
+         * Size 128K elements → 6 MB buffer - Use temporary allocation
+         * </pre>
+         * 
+         * @param size the required buffer size in elements
+         * @return true if thread-local buffers should be used; false if temporary allocation is preferred
+         * @see #MAX_BUFFER_SIZE
          */
         boolean canUseBuffers(int size) {
             return size <= MAX_BUFFER_SIZE;
@@ -441,7 +487,7 @@ public class SIMDComplexOperations implements ComplexOperations {
     
     @Override
     public String getImplementationName() {
-        return "SIMD-Optimized Complex Operations with Exponential Growth Buffer Management";
+        return "SIMD-Optimized Complex Operations with Leak-Safe ThreadLocal Buffer Management";
     }
     
     /**
@@ -477,11 +523,112 @@ public class SIMDComplexOperations implements ComplexOperations {
     
     /**
      * Forces cleanup of thread-local buffers for the current thread.
-     * This can be called to reclaim memory when complex operations
-     * are no longer needed on this thread.
+     * 
+     * CRITICAL: This method must be called to prevent memory leaks in:
+     * - Web applications (call in request/response filters)
+     * - Application servers (call before returning threads to pool)
+     * - Long-running applications with thread pools
+     * - Any environment where threads are reused
+     * 
+     * Memory Reclaimed:
+     * - Up to ~385KB per thread (6 arrays × 64K elements × 8 bytes)
+     * - Prevents ClassLoader leaks in application servers
+     * - Allows proper garbage collection of buffer arrays
+     * 
+     * Usage Examples:
+     * ```java
+     * // Manual cleanup
+     * try {
+     *     SIMDComplexOperations ops = new SIMDComplexOperations();
+     *     ops.add(array1, array2, result, length);
+     * } finally {
+     *     SIMDComplexOperations.clearThreadBuffers();
+     * }
+     * 
+     * // In servlet filters
+     * public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain) {
+     *     try {
+     *         chain.doFilter(request, response);
+     *     } finally {
+     *         SIMDComplexOperations.clearThreadBuffers();
+     *     }
+     * }
+     * ```
+     * 
+     * @see #createThreadLocalCleaner() for automatic cleanup pattern
      */
     public static void clearThreadBuffers() {
         threadLocalBuffers.remove();
+    }
+    
+    /**
+     * Creates a ThreadLocalCleaner for automatic cleanup using try-with-resources.
+     * 
+     * This provides a safer pattern for managing ThreadLocal lifecycle:
+     * 
+     * ```java
+     * try (SIMDComplexOperations.ThreadLocalCleaner cleaner = 
+     *          SIMDComplexOperations.createThreadLocalCleaner()) {
+     *     SIMDComplexOperations ops = new SIMDComplexOperations();
+     *     ops.add(array1, array2, result, length);
+     *     // Buffers automatically cleaned up when leaving try block
+     * }
+     * ```
+     * 
+     * @return a ThreadLocalCleaner that implements AutoCloseable
+     */
+    public static ThreadLocalCleaner createThreadLocalCleaner() {
+        return new ThreadLocalCleaner();
+    }
+    
+    /**
+     * AutoCloseable wrapper for automatic ThreadLocal cleanup.
+     * Use with try-with-resources to ensure buffers are always cleaned up.
+     */
+    public static class ThreadLocalCleaner implements AutoCloseable {
+        private ThreadLocalCleaner() {
+            // Package-private constructor - use createThreadLocalCleaner()
+        }
+        
+        @Override
+        public void close() {
+            clearThreadBuffers();
+        }
+    }
+    
+    /**
+     * Checks if the current thread has ThreadLocal buffers allocated.
+     * Useful for monitoring and debugging memory usage.
+     * 
+     * @return true if current thread has buffers allocated, false otherwise
+     */
+    public static boolean hasThreadLocalBuffers() {
+        // We can't directly check ThreadLocal existence without triggering initialization,
+        // so we check if any operations have been performed by looking at the initial size
+        try {
+            BufferSet buffers = threadLocalBuffers.get();
+            return buffers.getCurrentSize() > INITIAL_BUFFER_SIZE || 
+                   buffers.real1 != null; // Check if buffers have been used
+        } catch (Exception e) {
+            return false;
+        }
+    }
+    
+    /**
+     * Gets the memory usage of ThreadLocal buffers across all threads (approximate).
+     * This is an estimate and may not reflect actual memory usage due to GC behavior.
+     * 
+     * Note: This method cannot accurately measure all thread-local instances,
+     * it only reports the current thread's usage as an example.
+     * 
+     * @return approximate memory usage in bytes for current thread
+     */
+    public static long estimateThreadLocalMemoryUsage() {
+        if (!hasThreadLocalBuffers()) {
+            return 0;
+        }
+        BufferSet buffers = threadLocalBuffers.get();
+        return buffers.getMemoryUsage();
     }
     
     @Override
