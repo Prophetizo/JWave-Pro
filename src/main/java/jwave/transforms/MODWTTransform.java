@@ -6,6 +6,7 @@ import jwave.transforms.wavelets.WaveletOperations;
 import jwave.transforms.wavelets.StandardWaveletOperations;
 import jwave.exceptions.JWaveException;
 import jwave.exceptions.JWaveFailure;
+import jwave.exceptions.OptimizedImplementationException;
 import jwave.datatypes.natives.Complex;
 import jwave.utils.MathUtils;
 
@@ -390,22 +391,20 @@ public class MODWTTransform extends WaveletTransform {
         // Strategy 1: Try to create optimized implementations directly
         try {
             return createOptimizedImplementations(wavelet);
-        } catch (Exception e) {
-            String optimizedError = "Failed to create optimized implementations: " + e.getMessage();
-            
-            if (allowFallback) {
-                // Strategy 2: Fall back to standard implementations
+        } catch (OptimizedImplementationException e) {
+            if (allowFallback && e.isFallbackRecommended()) {
+                // Strategy 2: Fall back to standard implementations for recoverable errors
                 try {
                     return new MODWTTransform(wavelet);
                 } catch (Exception fallbackError) {
                     throw new IllegalStateException(
                         "Failed to create both optimized and standard implementations. " +
-                        "Optimized error: " + optimizedError + 
-                        ". Standard error: " + fallbackError.getMessage(), fallbackError);
+                        "Optimized error (" + e.getFailureType() + "): " + e.getMessage() + 
+                        ". Standard error: " + fallbackError.getMessage(), e);
                 }
             } else {
                 throw new RuntimeException(
-                    "Optimized implementations required but not available. " + optimizedError + 
+                    "Optimized implementations required but not available (" + e.getFailureType() + "): " + e.getMessage() + 
                     ". Ensure OptimizedFastFourierTransform and OptimizedWaveletOperations are in classpath, " +
                     "or use createOptimized(wavelet) for automatic fallback.", e);
             }
@@ -429,9 +428,9 @@ public class MODWTTransform extends WaveletTransform {
      * 
      * @param wavelet the wavelet to use for the transform
      * @return MODWTTransform with optimized implementations
-     * @throws Exception if optimized implementations cannot be instantiated
+     * @throws OptimizedImplementationException if optimized implementations cannot be loaded or instantiated
      */
-    private static MODWTTransform createOptimizedImplementations(Wavelet wavelet) throws Exception {
+    private static MODWTTransform createOptimizedImplementations(Wavelet wavelet) throws OptimizedImplementationException {
         // Define expected class names as constants to avoid typos and enable easy maintenance
         final String OPTIMIZED_FFT_CLASS = "jwave.transforms.OptimizedFastFourierTransform";
         final String OPTIMIZED_WAVELET_OPS_CLASS = "jwave.transforms.wavelets.OptimizedWaveletOperations";
@@ -440,13 +439,17 @@ public class MODWTTransform extends WaveletTransform {
             // Strategy 1: Load optimized FFT implementation
             Class<?> optimizedFFTClass = Class.forName(OPTIMIZED_FFT_CLASS);
             if (!FastFourierTransform.class.isAssignableFrom(optimizedFFTClass)) {
-                throw new Exception("Class " + OPTIMIZED_FFT_CLASS + " does not extend FastFourierTransform");
+                throw new OptimizedImplementationException(
+                    OptimizedImplementationException.FailureType.INCOMPATIBLE_INTERFACE,
+                    "Class " + OPTIMIZED_FFT_CLASS + " does not extend FastFourierTransform");
             }
             
             // Strategy 2: Load optimized wavelet operations implementation
             Class<?> optimizedWaveletOpsClass = Class.forName(OPTIMIZED_WAVELET_OPS_CLASS);
             if (!WaveletOperations.class.isAssignableFrom(optimizedWaveletOpsClass)) {
-                throw new Exception("Class " + OPTIMIZED_WAVELET_OPS_CLASS + " does not implement WaveletOperations");
+                throw new OptimizedImplementationException(
+                    OptimizedImplementationException.FailureType.INCOMPATIBLE_INTERFACE,
+                    "Class " + OPTIMIZED_WAVELET_OPS_CLASS + " does not implement WaveletOperations");
             }
             
             // Strategy 3: Instantiate both classes
@@ -458,20 +461,39 @@ public class MODWTTransform extends WaveletTransform {
             return new MODWTTransform(wavelet, optimizedFFT, optimizedWaveletOps);
             
         } catch (ClassNotFoundException e) {
-            throw new Exception("Optimized implementation classes not found in classpath. " +
+            throw new OptimizedImplementationException(
+                "Optimized implementation classes not found in classpath. " +
                 "Missing class: " + e.getMessage() + ". " +
-                "Expected classes: [" + OPTIMIZED_FFT_CLASS + ", " + OPTIMIZED_WAVELET_OPS_CLASS + "]", e);
+                "Expected classes: [" + OPTIMIZED_FFT_CLASS + ", " + OPTIMIZED_WAVELET_OPS_CLASS + "]",
+                new String[]{OPTIMIZED_FFT_CLASS, OPTIMIZED_WAVELET_OPS_CLASS}, e);
         } catch (NoSuchMethodException e) {
-            throw new Exception("Optimized implementations missing default constructor: " + e.getMessage(), e);
-        } catch (InstantiationException | IllegalAccessException e) {
-            throw new Exception("Cannot instantiate optimized implementations: " + e.getMessage(), e);
+            throw new OptimizedImplementationException(
+                OptimizedImplementationException.FailureType.MISSING_CONSTRUCTOR,
+                "Optimized implementations missing default constructor: " + e.getMessage(), e);
+        } catch (InstantiationException e) {
+            throw new OptimizedImplementationException(
+                OptimizedImplementationException.FailureType.INSTANTIATION_FAILED,
+                "Cannot instantiate optimized implementations: " + e.getMessage(), e);
+        } catch (IllegalAccessException e) {
+            throw new OptimizedImplementationException(
+                OptimizedImplementationException.FailureType.ACCESS_DENIED,
+                "Cannot access optimized implementation constructors: " + e.getMessage(), e);
         } catch (java.lang.reflect.InvocationTargetException e) {
-            throw new Exception("Error during optimized implementation initialization: " + 
-                e.getCause() != null ? e.getCause().getMessage() : e.getMessage(), e);
+            throw new OptimizedImplementationException(
+                OptimizedImplementationException.FailureType.INITIALIZATION_FAILED,
+                "Error during optimized implementation initialization: " + 
+                (e.getCause() != null ? e.getCause().getMessage() : e.getMessage()), e);
         } catch (ClassCastException e) {
-            throw new Exception("Optimized implementations do not match expected interfaces: " + e.getMessage(), e);
+            throw new OptimizedImplementationException(
+                OptimizedImplementationException.FailureType.INCOMPATIBLE_INTERFACE,
+                "Optimized implementations do not match expected interfaces: " + e.getMessage(), e);
+        } catch (OptimizedImplementationException e) {
+            // Re-throw our specific exceptions
+            throw e;
         } catch (Exception e) {
-            throw new Exception("Unexpected error creating optimized implementations: " + e.getMessage(), e);
+            throw new OptimizedImplementationException(
+                OptimizedImplementationException.FailureType.UNKNOWN,
+                "Unexpected error creating optimized implementations: " + e.getMessage(), e);
         }
     }
     
