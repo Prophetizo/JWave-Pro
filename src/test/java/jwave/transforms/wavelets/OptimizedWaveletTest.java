@@ -250,5 +250,80 @@ public class OptimizedWaveletTest extends Base {
         double[] convResult = OptimizedWavelet.circularConvolve(signal, filter, 8, 2, 2);
         assertNotNull("Convolution result should not be null", convResult);
         assertEquals("Convolution result size mismatch", 8, convResult.length);
+        
+        // Verify correctness by comparing with reference implementation
+        double[] expectedResult = computeReferenceCircularConvolveWithStride(signal, filter, 8, 2, 2);
+        assertArrayEquals("Strided convolution result mismatch", expectedResult, convResult, 1e-10);
+    }
+    
+    @Test
+    public void testCircularConvolveWithVariousStrides() {
+        // Test different signal sizes, filter sizes, and strides
+        int[][] testCases = {
+            // {signalSize, filterSize, stride}
+            {8, 2, 1},
+            {8, 2, 2},
+            {16, 4, 2},
+            {16, 4, 4},
+            {32, 8, 2},
+            {32, 8, 4},
+            {64, 16, 4}
+        };
+        
+        for (int[] testCase : testCases) {
+            int signalSize = testCase[0];
+            int filterSize = testCase[1];
+            int stride = testCase[2];
+            
+            // Create test signal and filter
+            double[] signal = new double[signalSize];
+            double[] filter = new double[filterSize];
+            
+            // Initialize with test pattern
+            for (int i = 0; i < signalSize; i++) {
+                signal[i] = Math.sin(2 * Math.PI * i / signalSize) + 
+                           0.5 * Math.cos(4 * Math.PI * i / signalSize);
+            }
+            
+            for (int i = 0; i < filterSize; i++) {
+                filter[i] = 1.0 / filterSize; // Averaging filter
+            }
+            
+            // Compute with optimized method
+            double[] optimizedResult = OptimizedWavelet.circularConvolve(
+                signal, filter, signalSize, filterSize, stride);
+            
+            // Compute with reference method
+            double[] referenceResult = computeReferenceCircularConvolveWithStride(
+                signal, filter, signalSize, filterSize, stride);
+            
+            // Verify results match
+            assertArrayEquals(
+                String.format("Mismatch for signalSize=%d, filterSize=%d, stride=%d",
+                             signalSize, filterSize, stride),
+                referenceResult, optimizedResult, 1e-10);
+        }
+    }
+    
+    /**
+     * Reference implementation of circular convolution with stride.
+     * This provides a simple, easy-to-verify implementation for testing.
+     */
+    private double[] computeReferenceCircularConvolveWithStride(double[] signal, double[] filter, 
+                                                                int signalLength, int filterLength, 
+                                                                int stride) {
+        double[] result = new double[signalLength];
+        
+        for (int n = 0; n < signalLength; n++) {
+            double sum = 0.0;
+            for (int k = 0; k < filterLength; k++) {
+                // With stride, we sample the signal at positions separated by stride
+                int idx = (n - k * stride + signalLength * stride) % signalLength;
+                sum += signal[idx] * filter[k];
+            }
+            result[n] = sum;
+        }
+        
+        return result;
     }
 }
