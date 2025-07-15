@@ -104,6 +104,7 @@ public class SIMDComplexOperations implements ComplexOperations {
         double[] realOut;
         double[] imagOut;
         int currentSize = 0;
+        boolean hasBeenUsed = false;
         
         /**
          * Initializes buffers with a reasonable default size.
@@ -128,6 +129,9 @@ public class SIMDComplexOperations implements ComplexOperations {
          * @param size the required buffer size
          */
         void ensureCapacity(int size) {
+            // Mark buffers as used when capacity is ensured for actual operations
+            hasBeenUsed = true;
+            
             // Determine if we need to resize
             boolean needsGrowth = size > currentSize;
             boolean shouldShrink = currentSize > MIN_SHRINK_THRESHOLD && 
@@ -597,18 +601,20 @@ public class SIMDComplexOperations implements ComplexOperations {
     }
     
     /**
-     * Checks if the current thread has ThreadLocal buffers allocated.
+     * Checks if the current thread has ThreadLocal buffers that have been used for operations.
      * Useful for monitoring and debugging memory usage.
      * 
-     * @return true if current thread has buffers allocated, false otherwise
+     * <p><b>Important:</b> This method will return false until the first complex operation 
+     * is performed on the current thread, even though buffers are technically allocated 
+     * upon first access. This helps distinguish between threads that have actually used 
+     * the SIMD operations versus threads that have only triggered initialization.</p>
+     * 
+     * @return true if current thread has buffers that have been used for operations, false otherwise
      */
     public static boolean hasThreadLocalBuffers() {
-        // We can't directly check ThreadLocal existence without triggering initialization,
-        // so we check if any operations have been performed by looking at the initial size
         try {
             BufferSet buffers = threadLocalBuffers.get();
-            return buffers.getCurrentSize() > INITIAL_BUFFER_SIZE || 
-                   buffers.real1 != null; // Check if buffers have been used
+            return buffers.hasBeenUsed;
         } catch (Exception e) {
             return false;
         }
