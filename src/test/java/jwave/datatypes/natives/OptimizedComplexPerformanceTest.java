@@ -31,7 +31,6 @@ import org.junit.Test;
  * Performance tests for OptimizedComplex vs standard Complex operations.
  * 
  * @author Stephen Romano
- * @date 15.07.2025
  */
 public class OptimizedComplexPerformanceTest extends Base {
     

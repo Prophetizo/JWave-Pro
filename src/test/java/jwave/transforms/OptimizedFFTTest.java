@@ -36,7 +36,6 @@ import jwave.exceptions.JWaveException;
  * Verifies correctness and compatibility with the standard FFT implementation.
  *
  * @author Stephen Romano
- * @date 15.01.2025
  */
 public class OptimizedFFTTest {
 

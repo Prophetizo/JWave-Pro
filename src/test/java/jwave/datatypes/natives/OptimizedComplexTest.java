@@ -31,7 +31,6 @@ import static org.junit.Assert.*;
  * Unit tests for OptimizedComplex operations.
  * 
  * @author Stephen Romano
- * @date 15.07.2025
  */
 public class OptimizedComplexTest extends Base {
     

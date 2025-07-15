@@ -34,7 +34,6 @@ import static org.junit.Assert.*;
  * Unit tests for OptimizedWavelet operations.
  * 
  * @author Stephen Romano
- * @date 15.07.2025
  */
 public class OptimizedWaveletTest extends Base {
     

@@ -36,7 +36,6 @@ import org.junit.Ignore;
  * it from running during automated test execution.
  * 
  * @author Stephen Romano
- * @date 15.07.2025
  */
 @Ignore("Performance demo - not a test")
 public class CWT1024PerformanceDemo {

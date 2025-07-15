@@ -23,6 +23,8 @@
  */
 package jwave.transforms.wavelets;
 
+import jwave.utils.OptimizationConstants;
+
 /**
  * SIMD-optimized wavelet convolution operations.
  * This class provides static methods for high-performance wavelet transforms
@@ -35,11 +37,8 @@ package jwave.transforms.wavelets;
  * - Vectorization-friendly operations
  * 
  * @author Stephen Romano
- * @date 15.07.2025
  */
 public class OptimizedWavelet {
-    
-    private static final int UNROLL_FACTOR = 4;
     
     /**
      * Private constructor to prevent instantiation.
@@ -72,7 +71,7 @@ public class OptimizedWavelet {
             
             // Unrolled inner loop
             int j = 0;
-            for (; j + UNROLL_FACTOR <= motherWavelength; j += UNROLL_FACTOR) {
+            for (; j + OptimizationConstants.UNROLL_FACTOR <= motherWavelength; j += OptimizationConstants.UNROLL_FACTOR) {
                 int k0 = (baseIdx + j) % arrTimeLength;
                 int k1 = (baseIdx + j + 1) % arrTimeLength;
                 int k2 = (baseIdx + j + 2) % arrTimeLength;
@@ -100,7 +99,7 @@ public class OptimizedWavelet {
             
             // Unrolled inner loop
             int j = 0;
-            for (; j + UNROLL_FACTOR <= motherWavelength; j += UNROLL_FACTOR) {
+            for (; j + OptimizationConstants.UNROLL_FACTOR <= motherWavelength; j += OptimizationConstants.UNROLL_FACTOR) {
                 int k0 = (baseIdx + j) % arrTimeLength;
                 int k1 = (baseIdx + j + 1) % arrTimeLength;
                 int k2 = (baseIdx + j + 2) % arrTimeLength;
@@ -154,7 +153,7 @@ public class OptimizedWavelet {
                 
                 // Unrolled inner loop
                 int j = 0;
-                for (; j + UNROLL_FACTOR <= motherWavelength; j += UNROLL_FACTOR) {
+                for (; j + OptimizationConstants.UNROLL_FACTOR <= motherWavelength; j += OptimizationConstants.UNROLL_FACTOR) {
                     int k0 = (baseIdx + j) % arrHilbLength;
                     int k1 = (baseIdx + j + 1) % arrHilbLength;
                     int k2 = (baseIdx + j + 2) % arrHilbLength;
@@ -201,7 +200,7 @@ public class OptimizedWavelet {
                 
                 // Unrolled inner loop
                 int k = 0;
-                for (; k + UNROLL_FACTOR <= filterLength; k += UNROLL_FACTOR) {
+                for (; k + OptimizationConstants.UNROLL_FACTOR <= filterLength; k += OptimizationConstants.UNROLL_FACTOR) {
                     // Circular indexing with modulo optimization
                     int idx0 = (n - k + signalLength) % signalLength;
                     int idx1 = (n - k - 1 + signalLength) % signalLength;

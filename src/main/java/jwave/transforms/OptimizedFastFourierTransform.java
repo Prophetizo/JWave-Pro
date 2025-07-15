@@ -26,6 +26,7 @@ package jwave.transforms;
 import jwave.datatypes.natives.Complex;
 import jwave.exceptions.JWaveException;
 import jwave.utils.MathUtils;
+import jwave.utils.OptimizationConstants;
 
 /**
  * Optimized Fast Fourier Transform implementation with SIMD-friendly algorithms.
@@ -38,15 +39,11 @@ import jwave.utils.MathUtils;
  * - Pre-computed twiddle factors
  * 
  * @author Stephen Romano
- * @date 15.01.2025
  */
 public class OptimizedFastFourierTransform extends FastFourierTransform {
     
     // Cache line size (typically 64 bytes = 8 doubles)
-    private static final int CACHE_LINE_DOUBLES = 8;
-    
-    // Unroll factor for butterfly operations
-    private static final int UNROLL_FACTOR = 4;
+    private static final int CACHE_LINE_DOUBLES = OptimizationConstants.DOUBLES_PER_CACHE_LINE;
     
     /**
      * Constructor
@@ -221,9 +218,9 @@ public class OptimizedFastFourierTransform extends FastFourierTransform {
         int j = 0;
         
         // Unrolled loop for better performance
-        for (; j + UNROLL_FACTOR <= halfSize; j += UNROLL_FACTOR) {
+        for (; j + OptimizationConstants.UNROLL_FACTOR <= halfSize; j += OptimizationConstants.UNROLL_FACTOR) {
             // Unroll 4 iterations
-            for (int u = 0; u < UNROLL_FACTOR; u++) {
+            for (int u = 0; u < OptimizationConstants.UNROLL_FACTOR; u++) {
                 int upperIdx = offset + j + u;
                 int lowerIdx = upperIdx + halfSize;
                 

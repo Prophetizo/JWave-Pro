@@ -34,7 +34,6 @@ import org.junit.Test;
  * Performance tests for OptimizedWavelet vs standard Wavelet operations.
  * 
  * @author Stephen Romano
- * @date 15.07.2025
  */
 public class OptimizedWaveletPerformanceTest extends Base {
     

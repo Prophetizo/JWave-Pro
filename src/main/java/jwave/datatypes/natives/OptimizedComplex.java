@@ -23,6 +23,8 @@
  */
 package jwave.datatypes.natives;
 
+import jwave.utils.OptimizationConstants;
+
 /**
  * SIMD-friendly optimized complex number operations.
  * This class provides static methods for bulk complex number operations
@@ -35,11 +37,8 @@ package jwave.datatypes.natives;
  * - Cache-friendly memory access patterns
  * 
  * @author Stephen Romano
- * @date 15.07.2025
  */
 public class OptimizedComplex {
-    
-    private static final int UNROLL_FACTOR = 4;
     
     /**
      * Private constructor to prevent instantiation.
@@ -65,7 +64,7 @@ public class OptimizedComplex {
         int i = 0;
         
         // Unrolled loop for better performance
-        for (; i + UNROLL_FACTOR <= length; i += UNROLL_FACTOR) {
+        for (; i + OptimizationConstants.UNROLL_FACTOR <= length; i += OptimizationConstants.UNROLL_FACTOR) {
             realOut[i] = real1[i] + real2[i];
             imagOut[i] = imag1[i] + imag2[i];
             
@@ -105,7 +104,7 @@ public class OptimizedComplex {
         int i = 0;
         
         // Unrolled loop for better performance
-        for (; i + UNROLL_FACTOR <= length; i += UNROLL_FACTOR) {
+        for (; i + OptimizationConstants.UNROLL_FACTOR <= length; i += OptimizationConstants.UNROLL_FACTOR) {
             realOut[i] = real1[i] - real2[i];
             imagOut[i] = imag1[i] - imag2[i];
             
@@ -146,7 +145,7 @@ public class OptimizedComplex {
         int i = 0;
         
         // Unrolled loop for better performance
-        for (; i + UNROLL_FACTOR <= length; i += UNROLL_FACTOR) {
+        for (; i + OptimizationConstants.UNROLL_FACTOR <= length; i += OptimizationConstants.UNROLL_FACTOR) {
             // Complex multiplication for index i
             realOut[i] = real1[i] * real2[i] - imag1[i] * imag2[i];
             imagOut[i] = real1[i] * imag2[i] + imag1[i] * real2[i];
@@ -189,7 +188,7 @@ public class OptimizedComplex {
         int i = 0;
         
         // Unrolled loop for better performance
-        for (; i + UNROLL_FACTOR <= length; i += UNROLL_FACTOR) {
+        for (; i + OptimizationConstants.UNROLL_FACTOR <= length; i += OptimizationConstants.UNROLL_FACTOR) {
             realOut[i] = real[i] * scalar;
             imagOut[i] = imag[i] * scalar;
             
@@ -226,7 +225,7 @@ public class OptimizedComplex {
         int i = 0;
         
         // Unrolled loop for better performance
-        for (; i + UNROLL_FACTOR <= length; i += UNROLL_FACTOR) {
+        for (; i + OptimizationConstants.UNROLL_FACTOR <= length; i += OptimizationConstants.UNROLL_FACTOR) {
             realOut[i] = real[i];
             imagOut[i] = -imag[i];
             
@@ -261,7 +260,7 @@ public class OptimizedComplex {
         int i = 0;
         
         // Unrolled loop for better performance
-        for (; i + UNROLL_FACTOR <= length; i += UNROLL_FACTOR) {
+        for (; i + OptimizationConstants.UNROLL_FACTOR <= length; i += OptimizationConstants.UNROLL_FACTOR) {
             magOut[i] = Math.sqrt(real[i] * real[i] + imag[i] * imag[i]);
             magOut[i+1] = Math.sqrt(real[i+1] * real[i+1] + imag[i+1] * imag[i+1]);
             magOut[i+2] = Math.sqrt(real[i+2] * real[i+2] + imag[i+2] * imag[i+2]);
@@ -288,7 +287,7 @@ public class OptimizedComplex {
         int i = 0;
         
         // Unrolled loop for better performance
-        for (; i + UNROLL_FACTOR <= length; i += UNROLL_FACTOR) {
+        for (; i + OptimizationConstants.UNROLL_FACTOR <= length; i += OptimizationConstants.UNROLL_FACTOR) {
             realOut[i] = complexArray[i].getReal();
             imagOut[i] = complexArray[i].getImag();
             
@@ -322,7 +321,7 @@ public class OptimizedComplex {
         int i = 0;
         
         // Unrolled loop for better performance
-        for (; i + UNROLL_FACTOR <= length; i += UNROLL_FACTOR) {
+        for (; i + OptimizationConstants.UNROLL_FACTOR <= length; i += OptimizationConstants.UNROLL_FACTOR) {
             complexOut[i] = new Complex(real[i], imag[i]);
             complexOut[i+1] = new Complex(real[i+1], imag[i+1]);
             complexOut[i+2] = new Complex(real[i+2], imag[i+2]);
@@ -359,7 +358,7 @@ public class OptimizedComplex {
         double r0, r1, r2, r3;
         double im0, im1, im2, im3;
         
-        for (; i + UNROLL_FACTOR <= length; i += UNROLL_FACTOR) {
+        for (; i + OptimizationConstants.UNROLL_FACTOR <= length; i += OptimizationConstants.UNROLL_FACTOR) {
             // Complex multiplication: (a + bi)(c + di) = (ac - bd) + (ad + bc)i
             r0 = real1[i] * real2[i] - imag1[i] * imag2[i];
             im0 = real1[i] * imag2[i] + imag1[i] * real2[i];

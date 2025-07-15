@@ -35,7 +35,6 @@ import jwave.exceptions.JWaveException;
  * Performance comparison between standard FFT and optimized FFT.
  *
  * @author Stephen Romano
- * @date 15.01.2025
  */
 public class OptimizedFFTPerformanceTest {
 
