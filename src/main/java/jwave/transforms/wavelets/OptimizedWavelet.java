@@ -46,6 +46,23 @@ public class OptimizedWavelet {
     private OptimizedWavelet() {}
     
     /**
+     * Computes circular index with proper handling of negative values.
+     * This is equivalent to ((index % length) + length) % length
+     * but more efficient for the common case.
+     * 
+     * @param index the index to wrap
+     * @param length the length of the array
+     * @return the wrapped index in range [0, length)
+     */
+    private static int circularIndex(int index, int length) {
+        if (index >= 0) {
+            return index % length;
+        } else {
+            return ((index % length) + length) % length;
+        }
+    }
+    
+    /**
      * Optimized forward wavelet transform using SIMD-friendly convolution.
      * This method performs the same computation as Wavelet.forward() but with
      * better performance characteristics.
@@ -215,7 +232,7 @@ public class OptimizedWavelet {
                 
                 // Handle remaining elements
                 for (; k < filterLength; k++) {
-                    int idx = ((n - k) % signalLength + signalLength) % signalLength;
+                    int idx = circularIndex(n - k, signalLength);
                     sum += signal[idx] * filter[k];
                 }
                 
@@ -227,7 +244,7 @@ public class OptimizedWavelet {
                 double sum = 0.0;
                 
                 for (int k = 0; k < filterLength; k++) {
-                    int idx = (n - k * stride + signalLength * stride) % signalLength;
+                    int idx = circularIndex(n - k * stride, signalLength);
                     sum += signal[idx] * filter[k];
                 }
                 
