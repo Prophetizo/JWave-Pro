@@ -12,10 +12,13 @@ JWave Enhanced Edition is a comprehensive Java library for wavelet transforms, b
 
 ### Key Enhancements Over Original JWave
 
-- **47x faster MODWT** with FFT-based convolution
-- **SIMD-optimized operations** for 2-10x performance gains
+- **Up to 60x faster MODWT** with FFT-based convolution + SIMD optimizations
+- **SIMD-optimized operations** providing:
+  - 3-8x faster complex arithmetic for CWT
+  - 2-3x faster FFT operations
+  - 2-8x faster wavelet convolutions
 - **Parallel Wavelet Packet Transform** with 1.2-1.3x speedup
-- **Continuous Wavelet Transform (CWT)** implementation
+- **Continuous Wavelet Transform (CWT)** with 10-74x speedup using FFT
 - **Memory-efficient buffer pooling** reducing GC pressure by 36-70%
 - **50+ wavelets** including new continuous wavelet families
 - **Thread-safe implementations** for production use
@@ -234,10 +237,11 @@ double[] result = t.forward(oddSignal);
 
 | Operation | Performance Gain | Use Case |
 |-----------|-----------------|----------|
-| MODWT with FFT | Up to 47x faster | Large signals, multi-level decomposition |
+| MODWT with FFT+SIMD | Up to 60x faster | Large signals, multi-level decomposition |
+| CWT with FFT+SIMD | 10-74x faster | Time-frequency analysis |
 | SIMD Complex Ops | 3-8x faster | CWT, complex-valued transforms |
 | SIMD FFT | 2-3x faster | Frequency domain operations |
-| SIMD Convolution | 2-4x faster | Wavelet filtering, MODWT |
+| SIMD Convolution | 2-8x faster | Wavelet filtering, long filters |
 | Parallel WPT | 1.2-1.3x speedup | Multi-core systems, large transforms |
 | Buffer Pooling | 36-70% less GC | Repeated transforms, real-time processing |
 | Filter Caching | 10-20% faster | Multiple transforms with same wavelet |

@@ -202,10 +202,10 @@ public class OptimizedWavelet {
                 int k = 0;
                 for (; k + OptimizationConstants.UNROLL_FACTOR <= filterLength; k += OptimizationConstants.UNROLL_FACTOR) {
                     // Circular indexing with modulo optimization
-                    int idx0 = (n - k + signalLength) % signalLength;
-                    int idx1 = (n - k - 1 + signalLength) % signalLength;
-                    int idx2 = (n - k - 2 + signalLength) % signalLength;
-                    int idx3 = (n - k - 3 + signalLength) % signalLength;
+                    int idx0 = ((n - k) % signalLength + signalLength) % signalLength;
+                    int idx1 = ((n - k - 1) % signalLength + signalLength) % signalLength;
+                    int idx2 = ((n - k - 2) % signalLength + signalLength) % signalLength;
+                    int idx3 = ((n - k - 3) % signalLength + signalLength) % signalLength;
                     
                     sum += signal[idx0] * filter[k]
                          + signal[idx1] * filter[k + 1]
@@ -215,7 +215,7 @@ public class OptimizedWavelet {
                 
                 // Handle remaining elements
                 for (; k < filterLength; k++) {
-                    int idx = (n - k + signalLength) % signalLength;
+                    int idx = ((n - k) % signalLength + signalLength) % signalLength;
                     sum += signal[idx] * filter[k];
                 }
                 
@@ -281,5 +281,68 @@ public class OptimizedWavelet {
         decomposition[levels] = current;
         
         return decomposition;
+    }
+    
+    /**
+     * Performs the adjoint (transpose) of circular convolution with SIMD optimizations.
+     * 
+     * This operation is crucial for the inverse MODWT. If H is the convolution matrix,
+     * this computes H^T * signal. The adjoint operation differs from standard convolution
+     * in that it adds to indices rather than subtracting.
+     * 
+     * @param signal input signal
+     * @param filter filter for adjoint convolution
+     * @param signalLength length of the signal
+     * @param filterLength length of the filter
+     * @param stride stride for downsampling (1 for MODWT)
+     * @return adjoint convolution result
+     */
+    public static double[] circularConvolveAdjoint(double[] signal, double[] filter,
+                                                   int signalLength, int filterLength,
+                                                   int stride) {
+        double[] result = new double[signalLength];
+        
+        // For MODWT, stride is typically 1
+        if (stride == 1) {
+            // Optimized path for stride = 1
+            for (int n = 0; n < signalLength; n++) {
+                double sum = 0.0;
+                
+                // Unrolled inner loop for SIMD optimization
+                int m = 0;
+                for (; m + OptimizationConstants.UNROLL_FACTOR <= filterLength; m += OptimizationConstants.UNROLL_FACTOR) {
+                    // For adjoint operation, we add m instead of subtracting
+                    int idx0 = (n + m) % signalLength;
+                    int idx1 = (n + m + 1) % signalLength;
+                    int idx2 = (n + m + 2) % signalLength;
+                    int idx3 = (n + m + 3) % signalLength;
+                    
+                    sum += signal[idx0] * filter[m]
+                         + signal[idx1] * filter[m + 1]
+                         + signal[idx2] * filter[m + 2]
+                         + signal[idx3] * filter[m + 3];
+                }
+                
+                // Handle remaining elements
+                for (; m < filterLength; m++) {
+                    int idx = (n + m) % signalLength;
+                    sum += signal[idx] * filter[m];
+                }
+                
+                result[n] = sum;
+            }
+        } else {
+            // General case with arbitrary stride
+            for (int n = 0; n < signalLength; n++) {
+                double sum = 0.0;
+                for (int m = 0; m < filterLength; m++) {
+                    int idx = (n + m * stride) % signalLength;
+                    sum += signal[idx] * filter[m];
+                }
+                result[n] = sum;
+            }
+        }
+        
+        return result;
     }
 }

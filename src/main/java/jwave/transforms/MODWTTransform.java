@@ -1,6 +1,7 @@
 package jwave.transforms;
 
 import jwave.transforms.wavelets.Wavelet;
+import jwave.transforms.wavelets.OptimizedWavelet;
 import jwave.exceptions.JWaveException;
 import jwave.exceptions.JWaveFailure;
 import jwave.datatypes.natives.Complex;
@@ -179,7 +180,7 @@ public class MODWTTransform extends WaveletTransform {
      */
     public MODWTTransform(Wavelet wavelet) {
         super(wavelet);
-        this.fft = new FastFourierTransform();
+        this.fft = new OptimizedFastFourierTransform();
     }
     
     /**
@@ -191,7 +192,7 @@ public class MODWTTransform extends WaveletTransform {
     public MODWTTransform(Wavelet wavelet, int fftThreshold) {
         super(wavelet);
         this.fftConvolutionThreshold = fftThreshold;
-        this.fft = new FastFourierTransform();
+        this.fft = new OptimizedFastFourierTransform();
     }
     
     /**
@@ -456,7 +457,7 @@ public class MODWTTransform extends WaveletTransform {
                 if (!cacheInitialized || g_modwt_base == null) {
                     // Initialize FFT if needed
                     if (fft == null) {
-                        fft = new FastFourierTransform();
+                        fft = new OptimizedFastFourierTransform();
                     }
                     // Compute base MODWT filters
                     double[] g_dwt = Arrays.copyOf(_wavelet.getScalingDeComposition(), 
@@ -670,23 +671,17 @@ public class MODWTTransform extends WaveletTransform {
      * wraps around at the boundaries. This preserves the signal length
      * and is essential for the MODWT's shift-invariance property.</p>
      * 
+     * <p>This method now uses the SIMD-optimized implementation from
+     * OptimizedWavelet for better performance through loop unrolling
+     * and cache-friendly access patterns.</p>
+     * 
      * @param signal The input signal
      * @param filter The filter to convolve with
      * @return The convolution result with the same length as the signal
      */
     private static double[] circularConvolve(double[] signal, double[] filter) {
-        int N = signal.length;
-        int M = filter.length;
-        double[] output = new double[N];
-        for (int n = 0; n < N; n++) {
-            double sum = 0.0;
-            for (int m = 0; m < M; m++) {
-                int signalIndex = Math.floorMod(n - m, N);
-                sum += signal[signalIndex] * filter[m];
-            }
-            output[n] = sum;
-        }
-        return output;
+        // Use optimized SIMD-friendly convolution with stride=1 for MODWT
+        return OptimizedWavelet.circularConvolve(signal, filter, signal.length, filter.length, 1);
     }
 
     /**
@@ -696,23 +691,17 @@ public class MODWTTransform extends WaveletTransform {
      * convolution matrix, this computes H^T * signal. The adjoint
      * operation reverses the time-reversal in standard convolution.</p>
      * 
+     * <p>This method now uses the SIMD-optimized implementation from
+     * OptimizedWavelet for better performance through loop unrolling
+     * and cache-friendly access patterns.</p>
+     * 
      * @param signal The input signal
      * @param filter The filter for adjoint convolution
      * @return The adjoint convolution result
      */
     private static double[] circularConvolveAdjoint(double[] signal, double[] filter) {
-        int N = signal.length;
-        int M = filter.length;
-        double[] output = new double[N];
-        for (int n = 0; n < N; n++) {
-            double sum = 0.0;
-            for (int m = 0; m < M; m++) {
-                int signalIndex = Math.floorMod(n + m, N);
-                sum += signal[signalIndex] * filter[m];
-            }
-            output[n] = sum;
-        }
-        return output;
+        // Use optimized SIMD-friendly adjoint convolution with stride=1 for MODWT
+        return OptimizedWavelet.circularConvolveAdjoint(signal, filter, signal.length, filter.length, 1);
     }
     
     /**

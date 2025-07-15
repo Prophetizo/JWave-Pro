@@ -22,6 +22,7 @@
 package jwave.transforms;
 
 import jwave.datatypes.natives.Complex;
+import jwave.datatypes.natives.OptimizedComplex;
 import jwave.exceptions.JWaveException;
 import jwave.transforms.wavelets.continuous.ContinuousWavelet;
 import jwave.utils.MathUtils;
@@ -198,6 +199,11 @@ public class ContinuousWaveletTransform extends BasicTransform {
     double[] timeAxis = createTimeAxis(signalLength, samplingRate);
     Complex[][] coefficients = initializeCoefficients(nScales, signalLength);
     
+    // Extract real and imaginary parts for SIMD optimization
+    double[] signalFFTReal = new double[paddedLength];
+    double[] signalFFTImag = new double[paddedLength];
+    OptimizedComplex.toSeparateArrays(signalFFT, signalFFTReal, signalFFTImag);
+    
     // Perform CWT for each scale using FFT
     for (int scaleIdx = 0; scaleIdx < nScales; scaleIdx++) {
       double scale = scales[scaleIdx];
@@ -210,11 +216,21 @@ public class ContinuousWaveletTransform extends BasicTransform {
         waveletFFT[i] = waveletFFT[i].conjugate();
       }
       
-      // Multiply in frequency domain
+      // Extract wavelet FFT components for SIMD multiplication
+      double[] waveletFFTReal = new double[paddedLength];
+      double[] waveletFFTImag = new double[paddedLength];
+      OptimizedComplex.toSeparateArrays(waveletFFT, waveletFFTReal, waveletFFTImag);
+      
+      // Multiply in frequency domain using SIMD-optimized operations
+      double[] productReal = new double[paddedLength];
+      double[] productImag = new double[paddedLength];
+      OptimizedComplex.multiplyBulk(signalFFTReal, signalFFTImag, 
+                                    waveletFFTReal, waveletFFTImag,
+                                    productReal, productImag, paddedLength);
+      
+      // Convert back to Complex array for IFFT
       Complex[] product = new Complex[paddedLength];
-      for (int i = 0; i < paddedLength; i++) {
-        product[i] = signalFFT[i].mul(waveletFFT[i]);
-      }
+      OptimizedComplex.fromSeparateArrays(productReal, productImag, product);
       
       // Inverse FFT
       Complex[] result = computeIFFT(product);
@@ -325,22 +341,22 @@ public class ContinuousWaveletTransform extends BasicTransform {
       complexSignal[i] = new Complex(signal[i], 0);
     }
     
-    // Use JWave's Fast Fourier Transform (O(n log n) complexity)
-    FastFourierTransform fft = new FastFourierTransform();
+    // Use JWave's Optimized Fast Fourier Transform (O(n log n) complexity with SIMD)
+    OptimizedFastFourierTransform fft = new OptimizedFastFourierTransform();
     return fft.forward(complexSignal);
   }
 
   /**
-   * Compute inverse FFT using JWave's Fast Fourier Transform.
+   * Compute inverse FFT using JWave's Optimized Fast Fourier Transform.
    * 
-   * Uses O(n log n) algorithms for all input sizes.
+   * Uses O(n log n) algorithms for all input sizes with SIMD optimization.
    * 
    * @param spectrum complex frequency domain signal
    * @return complex time domain result
    */
   private Complex[] computeIFFT(Complex[] spectrum) {
-    // Use JWave's Fast Fourier Transform (O(n log n) complexity)
-    FastFourierTransform fft = new FastFourierTransform();
+    // Use JWave's Optimized Fast Fourier Transform (O(n log n) complexity with SIMD)
+    OptimizedFastFourierTransform fft = new OptimizedFastFourierTransform();
     return fft.reverse(spectrum);
   }
 
