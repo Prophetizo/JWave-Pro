@@ -23,13 +23,12 @@
  */
 package jwave.examples;
 
-import jwave.transforms.ContinuousWaveletTransform;
+import jwave.datatypes.natives.Complex;
 import jwave.transforms.CWTResult;
-import jwave.transforms.FastFourierTransform;
+import jwave.transforms.ContinuousWaveletTransform;
 import jwave.transforms.OptimizedFastFourierTransform;
 import jwave.transforms.wavelets.continuous.MexicanHatWavelet;
 import jwave.transforms.wavelets.continuous.MorletWavelet;
-import jwave.datatypes.natives.Complex;
 
 /**
  * Demonstrates how to use the optimized Continuous Wavelet Transform (CWT).

@@ -63,6 +63,12 @@ public class SIMDComplexOperations implements ComplexOperations {
     private static final int INITIAL_BUFFER_SIZE = 1024;
     
     /**
+     * Growth factor for exponential buffer expansion.
+     * Use 1.5x growth for better memory efficiency than 2x while maintaining good amortized performance.
+     */
+    private static final double GROWTH_FACTOR = 1.5;
+    
+    /**
      * Thread-local buffers to reduce allocation overhead.
      * Each thread gets its own set of buffers with smart sizing.
      */
@@ -89,14 +95,17 @@ public class SIMDComplexOperations implements ComplexOperations {
         }
         
         /**
-         * Ensures buffer capacity, with smart growth and shrinking.
+         * Ensures buffer capacity with exponential growth and smart shrinking.
          * 
          * Growth strategy:
-         * - Grows to exactly the requested size (up to MAX_BUFFER_SIZE)
+         * - Uses exponential growth (1.5x factor) to minimize reallocations
+         * - Grows to at least the requested size, but potentially larger for future requests
+         * - Capped at MAX_BUFFER_SIZE to prevent unbounded memory usage
          * 
          * Shrinking strategy:
          * - Shrinks if requested size < currentSize/4 and currentSize > MIN_SHRINK_THRESHOLD
          * - This prevents thrashing while reclaiming significant unused memory
+         * - Provides 2x headroom to reduce likelihood of immediate regrowth
          * 
          * @param size the required buffer size
          */
@@ -109,8 +118,19 @@ public class SIMDComplexOperations implements ComplexOperations {
             if (needsGrowth || shouldShrink) {
                 int newSize;
                 if (needsGrowth) {
-                    // Grow to exactly the requested size (capped at MAX_BUFFER_SIZE)
-                    newSize = Math.min(size, MAX_BUFFER_SIZE);
+                    // Exponential growth strategy: grow by GROWTH_FACTOR but ensure we meet the request
+                    newSize = Math.max(size, (int)(currentSize * GROWTH_FACTOR));
+                    
+                    // For very small sizes, ensure minimum reasonable growth
+                    if (currentSize < INITIAL_BUFFER_SIZE) {
+                        newSize = Math.max(newSize, INITIAL_BUFFER_SIZE);
+                    }
+                    
+                    // Cap at maximum buffer size
+                    newSize = Math.min(newSize, MAX_BUFFER_SIZE);
+                    
+                    // If we hit the cap but still can't satisfy the request, 
+                    // this will be handled by the large array fallback
                 } else {
                     // Shrink to 2x the requested size to provide some headroom
                     // This reduces the likelihood of immediate regrowth
@@ -154,6 +174,18 @@ public class SIMDComplexOperations implements ComplexOperations {
          */
         int getCurrentSize() {
             return currentSize;
+        }
+        
+        /**
+         * Gets the growth efficiency ratio (how much of the buffer is actually being used).
+         * Values close to 1.0 indicate efficient usage, lower values indicate over-allocation.
+         * 
+         * @param requestedSize the size that was last requested
+         * @return efficiency ratio between 0.0 and 1.0
+         */
+        double getEfficiencyRatio(int requestedSize) {
+            if (currentSize == 0) return 1.0;
+            return Math.min(1.0, (double) requestedSize / currentSize);
         }
         
         /**
@@ -423,6 +455,24 @@ public class SIMDComplexOperations implements ComplexOperations {
         return String.format("Buffer size: %d elements (%.1f KB memory usage)", 
                            buffers.getCurrentSize(), 
                            buffers.getMemoryUsage() / 1024.0);
+    }
+    
+    /**
+     * Gets detailed statistics about buffer efficiency for the current thread.
+     * 
+     * @param lastRequestedSize the size of the last operation (for efficiency calculation)
+     * @return detailed statistics string
+     */
+    public static String getDetailedBufferStats(int lastRequestedSize) {
+        BufferSet buffers = threadLocalBuffers.get();
+        double efficiency = buffers.getEfficiencyRatio(lastRequestedSize);
+        return String.format(
+            "Buffer stats: %d elements allocated, %d requested (%.1f%% efficiency), %.1f KB memory",
+            buffers.getCurrentSize(), 
+            lastRequestedSize,
+            efficiency * 100,
+            buffers.getMemoryUsage() / 1024.0
+        );
     }
     
     /**
