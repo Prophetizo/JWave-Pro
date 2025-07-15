@@ -89,10 +89,10 @@ public class OptimizedWavelet {
             // Unrolled inner loop
             int j = 0;
             for (; j + OptimizationConstants.UNROLL_FACTOR <= motherWavelength; j += OptimizationConstants.UNROLL_FACTOR) {
-                int k0 = (baseIdx + j) % arrTimeLength;
-                int k1 = (baseIdx + j + 1) % arrTimeLength;
-                int k2 = (baseIdx + j + 2) % arrTimeLength;
-                int k3 = (baseIdx + j + 3) % arrTimeLength;
+                int k0 = circularIndex(baseIdx + j, arrTimeLength);
+                int k1 = circularIndex(baseIdx + j + 1, arrTimeLength);
+                int k2 = circularIndex(baseIdx + j + 2, arrTimeLength);
+                int k3 = circularIndex(baseIdx + j + 3, arrTimeLength);
                 
                 sum += arrTime[k0] * scalingDeCom[j]
                      + arrTime[k1] * scalingDeCom[j + 1]
@@ -102,7 +102,7 @@ public class OptimizedWavelet {
             
             // Handle remaining elements
             for (; j < motherWavelength; j++) {
-                int k = (baseIdx + j) % arrTimeLength;
+                int k = circularIndex(baseIdx + j, arrTimeLength);
                 sum += arrTime[k] * scalingDeCom[j];
             }
             
@@ -117,10 +117,10 @@ public class OptimizedWavelet {
             // Unrolled inner loop
             int j = 0;
             for (; j + OptimizationConstants.UNROLL_FACTOR <= motherWavelength; j += OptimizationConstants.UNROLL_FACTOR) {
-                int k0 = (baseIdx + j) % arrTimeLength;
-                int k1 = (baseIdx + j + 1) % arrTimeLength;
-                int k2 = (baseIdx + j + 2) % arrTimeLength;
-                int k3 = (baseIdx + j + 3) % arrTimeLength;
+                int k0 = circularIndex(baseIdx + j, arrTimeLength);
+                int k1 = circularIndex(baseIdx + j + 1, arrTimeLength);
+                int k2 = circularIndex(baseIdx + j + 2, arrTimeLength);
+                int k3 = circularIndex(baseIdx + j + 3, arrTimeLength);
                 
                 sum += arrTime[k0] * waveletDeCom[j]
                      + arrTime[k1] * waveletDeCom[j + 1]
@@ -130,7 +130,7 @@ public class OptimizedWavelet {
             
             // Handle remaining elements
             for (; j < motherWavelength; j++) {
-                int k = (baseIdx + j) % arrTimeLength;
+                int k = circularIndex(baseIdx + j, arrTimeLength);
                 sum += arrTime[k] * waveletDeCom[j];
             }
             
@@ -171,10 +171,10 @@ public class OptimizedWavelet {
                 // Unrolled inner loop
                 int j = 0;
                 for (; j + OptimizationConstants.UNROLL_FACTOR <= motherWavelength; j += OptimizationConstants.UNROLL_FACTOR) {
-                    int k0 = (baseIdx + j) % arrHilbLength;
-                    int k1 = (baseIdx + j + 1) % arrHilbLength;
-                    int k2 = (baseIdx + j + 2) % arrHilbLength;
-                    int k3 = (baseIdx + j + 3) % arrHilbLength;
+                    int k0 = circularIndex(baseIdx + j, arrHilbLength);
+                    int k1 = circularIndex(baseIdx + j + 1, arrHilbLength);
+                    int k2 = circularIndex(baseIdx + j + 2, arrHilbLength);
+                    int k3 = circularIndex(baseIdx + j + 3, arrHilbLength);
                     
                     arrTime[k0] += scalingCoeff * scalingReCon[j] + waveletCoeff * waveletReCon[j];
                     arrTime[k1] += scalingCoeff * scalingReCon[j + 1] + waveletCoeff * waveletReCon[j + 1];
@@ -184,7 +184,7 @@ public class OptimizedWavelet {
                 
                 // Handle remaining elements
                 for (; j < motherWavelength; j++) {
-                    int k = (baseIdx + j) % arrHilbLength;
+                    int k = circularIndex(baseIdx + j, arrHilbLength);
                     arrTime[k] += scalingCoeff * scalingReCon[j] + waveletCoeff * waveletReCon[j];
                 }
             }
