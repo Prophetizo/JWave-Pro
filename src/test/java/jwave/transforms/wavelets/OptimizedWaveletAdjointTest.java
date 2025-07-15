@@ -26,6 +26,7 @@ package jwave.transforms.wavelets;
 import jwave.Base;
 import org.junit.Test;
 import static org.junit.Assert.*;
+import java.util.Random;
 
 /**
  * Unit tests for OptimizedWavelet adjoint convolution operations.
@@ -35,6 +36,8 @@ import static org.junit.Assert.*;
 public class OptimizedWaveletAdjointTest extends Base {
     
     private static final double DELTA = 1e-10;
+    private static final long RANDOM_SEED = 42L; // Fixed seed for reproducible tests
+    private static final Random random = new Random(RANDOM_SEED);
     
     @Test
     public void testAdjointConvolutionCorrectness() {
@@ -81,19 +84,19 @@ public class OptimizedWaveletAdjointTest extends Base {
         double[] signal = new double[signalSize];
         double[] filter = new double[filterSize];
         
-        // Initialize with random values
+        // Initialize with random values using seeded Random for reproducibility
         for (int i = 0; i < signalSize; i++) {
-            signal[i] = Math.random();
+            signal[i] = random.nextDouble();
         }
         for (int i = 0; i < filterSize; i++) {
-            filter[i] = Math.random();
+            filter[i] = random.nextDouble();
         }
         
         // Test 1: Verify that <Hx, y> = <x, H*y> (adjoint property)
         // where H is convolution and H* is adjoint convolution
         double[] y = new double[signalSize];
         for (int i = 0; i < signalSize; i++) {
-            y[i] = Math.random();
+            y[i] = random.nextDouble();
         }
         
         // Compute Hx (forward convolution)
