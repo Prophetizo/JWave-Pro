@@ -51,14 +51,23 @@ import java.util.concurrent.TimeUnit;
  */
 public class PerformanceComparisonExample {
     
-    // Benchmark parameters
-    private static final int WARMUP_ITERATIONS = 100;
-    private static final int BENCHMARK_ITERATIONS = 1000;
-    private static final int[] TEST_SIZES = {256, 512, 1024, 2048, 4096, 8192};
+    // Default benchmark parameters
+    private static final int DEFAULT_warmupIterations = 100;
+    private static final int DEFAULT_benchmarkIterations = 1000;
+    private static final int[] DEFAULT_TEST_SIZES = {256, 512, 1024, 2048, 4096, 8192};
+    
+    // Configurable benchmark parameters
+    private static int warmupIterations;
+    private static int benchmarkIterations;
+    private static int[] testSizes;
     
     public static void main(String[] args) {
+        // Initialize configuration from system properties and command line arguments
+        initializeConfiguration(args);
+        
         System.out.println("=== JWave Performance Comparison ===");
         System.out.println("Comparing standard vs SIMD-optimized implementations\n");
+        printConfiguration();
         
         // Run all benchmarks
         benchmarkFFT();
@@ -69,6 +78,193 @@ public class PerformanceComparisonExample {
         
         // Summary
         printSummary();
+    }
+    
+    /**
+     * Initialize benchmark configuration from system properties and command line arguments.
+     * 
+     * System properties:
+     * - jwave.benchmark.warmup: Number of warmup iterations (default: 100)
+     * - jwave.benchmark.iterations: Number of benchmark iterations (default: 1000)
+     * - jwave.benchmark.sizes: Comma-separated test sizes (default: "256,512,1024,2048,4096,8192")
+     * - jwave.benchmark.quick: If "true", use reduced parameters for quick testing
+     * 
+     * Command line arguments:
+     * --warmup N: Set warmup iterations
+     * --iterations N: Set benchmark iterations
+     * --sizes N1,N2,N3: Set test sizes
+     * --quick: Use quick test parameters
+     * --help: Show usage information
+     */
+    private static void initializeConfiguration(String[] args) {
+        // Parse command line arguments first
+        parseCommandLineArgs(args);
+        
+        // Then apply system properties (they override command line)
+        applySystemProperties();
+        
+        // Apply defaults for any unset parameters
+        applyDefaults();
+        
+        // Validate configuration
+        validateConfiguration();
+    }
+    
+    private static void parseCommandLineArgs(String[] args) {
+        for (int i = 0; i < args.length; i++) {
+            String arg = args[i];
+            
+            switch (arg) {
+                case "--help":
+                case "-h":
+                    printUsage();
+                    System.exit(0);
+                    break;
+                    
+                case "--quick":
+                case "-q":
+                    // Quick test mode: fewer iterations and smaller sizes
+                    warmupIterations = 10;
+                    benchmarkIterations = 50;
+                    testSizes = new int[]{256, 1024, 4096};
+                    break;
+                    
+                case "--warmup":
+                    if (i + 1 < args.length) {
+                        warmupIterations = Integer.parseInt(args[++i]);
+                    } else {
+                        System.err.println("Error: --warmup requires a number");
+                        System.exit(1);
+                    }
+                    break;
+                    
+                case "--iterations":
+                    if (i + 1 < args.length) {
+                        benchmarkIterations = Integer.parseInt(args[++i]);
+                    } else {
+                        System.err.println("Error: --iterations requires a number");
+                        System.exit(1);
+                    }
+                    break;
+                    
+                case "--sizes":
+                    if (i + 1 < args.length) {
+                        testSizes = parseSizes(args[++i]);
+                    } else {
+                        System.err.println("Error: --sizes requires a comma-separated list");
+                        System.exit(1);
+                    }
+                    break;
+                    
+                default:
+                    if (arg.startsWith("-")) {
+                        System.err.println("Unknown option: " + arg);
+                        printUsage();
+                        System.exit(1);
+                    }
+                    break;
+            }
+        }
+    }
+    
+    private static void applySystemProperties() {
+        // Quick mode override
+        if ("true".equalsIgnoreCase(System.getProperty("jwave.benchmark.quick"))) {
+            warmupIterations = 10;
+            benchmarkIterations = 50;
+            testSizes = new int[]{256, 1024, 4096};
+            return; // Skip other properties in quick mode
+        }
+        
+        // Individual properties
+        String warmupProp = System.getProperty("jwave.benchmark.warmup");
+        if (warmupProp != null) {
+            warmupIterations = Integer.parseInt(warmupProp);
+        }
+        
+        String iterationsProp = System.getProperty("jwave.benchmark.iterations");
+        if (iterationsProp != null) {
+            benchmarkIterations = Integer.parseInt(iterationsProp);
+        }
+        
+        String sizesProp = System.getProperty("jwave.benchmark.sizes");
+        if (sizesProp != null) {
+            testSizes = parseSizes(sizesProp);
+        }
+    }
+    
+    private static void applyDefaults() {
+        if (warmupIterations == 0) {
+            warmupIterations = DEFAULT_warmupIterations;
+        }
+        if (benchmarkIterations == 0) {
+            benchmarkIterations = DEFAULT_benchmarkIterations;
+        }
+        if (testSizes == null) {
+            testSizes = DEFAULT_TEST_SIZES.clone();
+        }
+    }
+    
+    private static void validateConfiguration() {
+        if (warmupIterations < 0) {
+            throw new IllegalArgumentException("Warmup iterations must be non-negative: " + warmupIterations);
+        }
+        if (benchmarkIterations <= 0) {
+            throw new IllegalArgumentException("Benchmark iterations must be positive: " + benchmarkIterations);
+        }
+        if (testSizes.length == 0) {
+            throw new IllegalArgumentException("At least one test size must be specified");
+        }
+        for (int size : testSizes) {
+            if (size <= 0 || (size & (size - 1)) != 0) {
+                throw new IllegalArgumentException("Test sizes must be positive powers of 2: " + size);
+            }
+        }
+    }
+    
+    private static int[] parseSizes(String sizesStr) {
+        String[] parts = sizesStr.split(",");
+        int[] sizes = new int[parts.length];
+        for (int i = 0; i < parts.length; i++) {
+            sizes[i] = Integer.parseInt(parts[i].trim());
+        }
+        return sizes;
+    }
+    
+    private static void printUsage() {
+        System.out.println("Usage: java PerformanceComparisonExample [options]");
+        System.out.println();
+        System.out.println("Options:");
+        System.out.println("  --warmup N              Number of warmup iterations (default: 100)");
+        System.out.println("  --iterations N          Number of benchmark iterations (default: 1000)");
+        System.out.println("  --sizes N1,N2,N3        Comma-separated test sizes (default: 256,512,1024,2048,4096,8192)");
+        System.out.println("  --quick, -q             Quick test mode (10 warmup, 50 iterations, 3 sizes)");
+        System.out.println("  --help, -h              Show this help message");
+        System.out.println();
+        System.out.println("System Properties:");
+        System.out.println("  -Djwave.benchmark.warmup=N");
+        System.out.println("  -Djwave.benchmark.iterations=N");
+        System.out.println("  -Djwave.benchmark.sizes=N1,N2,N3");
+        System.out.println("  -Djwave.benchmark.quick=true");
+        System.out.println();
+        System.out.println("Examples:");
+        System.out.println("  java PerformanceComparisonExample --quick");
+        System.out.println("  java PerformanceComparisonExample --warmup 50 --iterations 500");
+        System.out.println("  java PerformanceComparisonExample --sizes 1024,2048,4096");
+        System.out.println("  java -Djwave.benchmark.quick=true PerformanceComparisonExample");
+    }
+    
+    private static void printConfiguration() {
+        System.out.println("Configuration:");
+        System.out.printf("  Warmup iterations: %d%n", warmupIterations);
+        System.out.printf("  Benchmark iterations: %d%n", benchmarkIterations);
+        System.out.print("  Test sizes: ");
+        for (int i = 0; i < testSizes.length; i++) {
+            if (i > 0) System.out.print(", ");
+            System.out.print(testSizes[i]);
+        }
+        System.out.println();
+        System.out.println();
     }
     
     /**
@@ -85,17 +281,17 @@ public class PerformanceComparisonExample {
         double totalSpeedup = 0;
         int validTests = 0;
         
-        for (int size : TEST_SIZES) {
+        for (int size : testSizes) {
             // Generate test data
             double[] signal = generateTestSignal(size);
             
             // Standard FFT
             Transform standardFFT = new Transform(new FastFourierTransform());
-            double standardTime = benchmarkTransform(standardFFT, signal, WARMUP_ITERATIONS, BENCHMARK_ITERATIONS);
+            double standardTime = benchmarkTransform(standardFFT, signal, warmupIterations, benchmarkIterations);
             
             // Optimized FFT
             Transform optimizedFFT = new Transform(new OptimizedFastFourierTransform());
-            double optimizedTime = benchmarkTransform(optimizedFFT, signal, WARMUP_ITERATIONS, BENCHMARK_ITERATIONS);
+            double optimizedTime = benchmarkTransform(optimizedFFT, signal, warmupIterations, benchmarkIterations);
             
             // Calculate speedup
             double speedup = standardTime / optimizedTime;
@@ -129,7 +325,7 @@ public class PerformanceComparisonExample {
             double totalSpeedup = 0;
             int validTests = 0;
             
-            for (int size : TEST_SIZES) {
+            for (int size : testSizes) {
                 if (size < wavelet.getTransformWavelength()) continue;
                 
                 // Generate test data
@@ -142,8 +338,8 @@ public class PerformanceComparisonExample {
                 long optimizedTime = benchmarkWavelet(wavelet, signal, true);
                 
                 // Convert to microseconds
-                double standardUs = standardTime / 1000.0 / BENCHMARK_ITERATIONS;
-                double optimizedUs = optimizedTime / 1000.0 / BENCHMARK_ITERATIONS;
+                double standardUs = standardTime / 1000.0 / benchmarkIterations;
+                double optimizedUs = optimizedTime / 1000.0 / benchmarkIterations;
                 
                 // Calculate speedup
                 double speedup = standardUs / optimizedUs;
@@ -269,7 +465,7 @@ public class PerformanceComparisonExample {
         double totalSpeedup = 0;
         int validTests = 0;
         
-        for (int size : TEST_SIZES) {
+        for (int size : testSizes) {
             // Create test data
             Complex[] complexArray1 = new Complex[size];
             Complex[] complexArray2 = new Complex[size];
@@ -297,16 +493,16 @@ public class PerformanceComparisonExample {
             
             // Benchmark standard approach
             long standardTime = benchmarkStandardComplexMultiply(
-                complexArray1, complexArray2, WARMUP_ITERATIONS, BENCHMARK_ITERATIONS);
+                complexArray1, complexArray2, warmupIterations, benchmarkIterations);
             
             // Benchmark optimized approach
             long optimizedTime = benchmarkOptimizedComplexMultiply(
                 real1, imag1, real2, imag2, resultReal, resultImag, 
-                WARMUP_ITERATIONS, BENCHMARK_ITERATIONS);
+                warmupIterations, benchmarkIterations);
             
             // Convert to microseconds
-            double standardUs = standardTime / 1000.0 / BENCHMARK_ITERATIONS;
-            double optimizedUs = optimizedTime / 1000.0 / BENCHMARK_ITERATIONS;
+            double standardUs = standardTime / 1000.0 / benchmarkIterations;
+            double optimizedUs = optimizedTime / 1000.0 / benchmarkIterations;
             
             // Calculate speedup
             double speedup = standardUs / optimizedUs;
@@ -388,7 +584,7 @@ public class PerformanceComparisonExample {
         int motherWavelength = wavelet.getMotherWavelength();
         
         // Warmup
-        for (int i = 0; i < WARMUP_ITERATIONS; i++) {
+        for (int i = 0; i < warmupIterations; i++) {
             if (optimized) {
                 OptimizedWavelet.forwardOptimized(signal, length, 
                     scalingDeCom, waveletDeCom, motherWavelength);
@@ -399,7 +595,7 @@ public class PerformanceComparisonExample {
         
         // Benchmark
         long startTime = System.nanoTime();
-        for (int i = 0; i < BENCHMARK_ITERATIONS; i++) {
+        for (int i = 0; i < benchmarkIterations; i++) {
             if (optimized) {
                 OptimizedWavelet.forwardOptimized(signal, length,
                     scalingDeCom, waveletDeCom, motherWavelength);
