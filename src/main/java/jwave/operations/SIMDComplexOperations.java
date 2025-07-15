@@ -441,7 +441,7 @@ public class SIMDComplexOperations implements ComplexOperations {
     
     @Override
     public String getImplementationName() {
-        return "SIMD-Optimized Complex Operations with Smart Buffer Management";
+        return "SIMD-Optimized Complex Operations with Exponential Growth Buffer Management";
     }
     
     /**
