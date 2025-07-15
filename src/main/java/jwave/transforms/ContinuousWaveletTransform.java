@@ -22,8 +22,9 @@
 package jwave.transforms;
 
 import jwave.datatypes.natives.Complex;
-import jwave.datatypes.natives.OptimizedComplex;
 import jwave.exceptions.JWaveException;
+import jwave.operations.ComplexOperations;
+import jwave.operations.ComplexOperationsFactory;
 import jwave.transforms.wavelets.continuous.ContinuousWavelet;
 import jwave.utils.MathUtils;
 import java.util.concurrent.ForkJoinPool;
@@ -52,6 +53,11 @@ public class ContinuousWaveletTransform extends BasicTransform {
    * The FFT implementation to use for frequency domain operations.
    */
   private final FastFourierTransform _fft;
+  
+  /**
+   * The complex operations implementation to use for bulk operations.
+   */
+  private final ComplexOperations _complexOps;
 
   /**
    * Parallelization thresholds for different signal sizes.
@@ -91,7 +97,7 @@ public class ContinuousWaveletTransform extends BasicTransform {
 
   /**
    * Constructor with a continuous wavelet.
-   * Uses FastFourierTransform by default for backward compatibility.
+   * Uses FastFourierTransform and default ComplexOperations for backward compatibility.
    * 
    * @param wavelet the continuous wavelet to use
    */
@@ -101,28 +107,29 @@ public class ContinuousWaveletTransform extends BasicTransform {
 
   /**
    * Constructor with a continuous wavelet and padding type.
-   * Uses FastFourierTransform by default for backward compatibility.
+   * Uses FastFourierTransform and StandardComplexOperations by default for backward compatibility.
    * 
    * @param wavelet the continuous wavelet to use
    * @param paddingType the padding type for boundary handling
    */
   public ContinuousWaveletTransform(ContinuousWavelet wavelet, PaddingType paddingType) {
-    this(wavelet, paddingType, new FastFourierTransform());
+    this(wavelet, paddingType, new FastFourierTransform(), ComplexOperationsFactory.getDefault());
   }
   
   /**
    * Constructor with a continuous wavelet and FFT implementation.
+   * Uses StandardComplexOperations by default.
    * 
    * @param wavelet the continuous wavelet to use
    * @param fft the FFT implementation to use
    */
   public ContinuousWaveletTransform(ContinuousWavelet wavelet, FastFourierTransform fft) {
-    this(wavelet, PaddingType.SYMMETRIC, fft);
+    this(wavelet, PaddingType.SYMMETRIC, fft, ComplexOperationsFactory.getDefault());
   }
   
   /**
    * Constructor with a continuous wavelet, padding type, and FFT implementation.
-   * This is the primary constructor that allows full customization.
+   * Uses default ComplexOperations.
    * 
    * @param wavelet the continuous wavelet to use
    * @param paddingType the padding type for boundary handling
@@ -130,11 +137,26 @@ public class ContinuousWaveletTransform extends BasicTransform {
    */
   public ContinuousWaveletTransform(ContinuousWavelet wavelet, PaddingType paddingType, 
                                     FastFourierTransform fft) {
+    this(wavelet, paddingType, fft, ComplexOperationsFactory.getDefault());
+  }
+  
+  /**
+   * Constructor with a continuous wavelet, padding type, FFT implementation, and ComplexOperations.
+   * This is the primary constructor that allows full customization including complex operations strategy.
+   * 
+   * @param wavelet the continuous wavelet to use
+   * @param paddingType the padding type for boundary handling
+   * @param fft the FFT implementation to use
+   * @param complexOps the complex operations implementation to use
+   */
+  public ContinuousWaveletTransform(ContinuousWavelet wavelet, PaddingType paddingType, 
+                                    FastFourierTransform fft, ComplexOperations complexOps) {
     super();
     _name = "Continuous Wavelet Transform (" + wavelet.getName() + ")";
     _wavelet = wavelet;
     _paddingType = paddingType;
     _fft = fft;
+    _complexOps = complexOps;
   }
 
   /**
@@ -230,11 +252,6 @@ public class ContinuousWaveletTransform extends BasicTransform {
     double[] timeAxis = createTimeAxis(signalLength, samplingRate);
     Complex[][] coefficients = initializeCoefficients(nScales, signalLength);
     
-    // Extract real and imaginary parts for SIMD optimization
-    double[] signalFFTReal = new double[paddedLength];
-    double[] signalFFTImag = new double[paddedLength];
-    OptimizedComplex.toSeparateArrays(signalFFT, signalFFTReal, signalFFTImag);
-    
     // Perform CWT for each scale using FFT
     for (int scaleIdx = 0; scaleIdx < nScales; scaleIdx++) {
       double scale = scales[scaleIdx];
@@ -243,25 +260,13 @@ public class ContinuousWaveletTransform extends BasicTransform {
       Complex[] waveletFFT = new Complex[paddedLength];
       for (int i = 0; i < paddedLength; i++) {
         waveletFFT[i] = _wavelet.fourierTransform(omega[i], scale, 0);
-        // Take complex conjugate for convolution
-        waveletFFT[i] = waveletFFT[i].conjugate();
       }
+      // Take complex conjugate for convolution
+      _complexOps.conjugate(waveletFFT, waveletFFT, paddedLength);
       
-      // Extract wavelet FFT components for SIMD multiplication
-      double[] waveletFFTReal = new double[paddedLength];
-      double[] waveletFFTImag = new double[paddedLength];
-      OptimizedComplex.toSeparateArrays(waveletFFT, waveletFFTReal, waveletFFTImag);
-      
-      // Multiply in frequency domain using SIMD-optimized operations
-      double[] productReal = new double[paddedLength];
-      double[] productImag = new double[paddedLength];
-      OptimizedComplex.multiplyBulk(signalFFTReal, signalFFTImag, 
-                                    waveletFFTReal, waveletFFTImag,
-                                    productReal, productImag, paddedLength);
-      
-      // Convert back to Complex array for IFFT
+      // Multiply in frequency domain
       Complex[] product = new Complex[paddedLength];
-      OptimizedComplex.fromSeparateArrays(productReal, productImag, product);
+      _complexOps.multiply(signalFFT, waveletFFT, product, paddedLength);
       
       // Inverse FFT
       Complex[] result = computeIFFT(product);
@@ -457,6 +462,15 @@ public class ContinuousWaveletTransform extends BasicTransform {
   public ContinuousWavelet getContinuousWavelet() {
     return _wavelet;
   }
+  
+  /**
+   * Get the complex operations implementation used in this transform.
+   * 
+   * @return the complex operations instance
+   */
+  public ComplexOperations getComplexOperations() {
+    return _complexOps;
+  }
 
   /**
    * Create time axis array for the given signal length and sampling rate.
@@ -587,15 +601,13 @@ public class ContinuousWaveletTransform extends BasicTransform {
       Complex[] waveletFFT = new Complex[paddedLength];
       for (int i = 0; i < paddedLength; i++) {
         waveletFFT[i] = _wavelet.fourierTransform(omega[i], scale, 0);
-        // Take complex conjugate for convolution
-        waveletFFT[i] = waveletFFT[i].conjugate();
       }
+      // Take complex conjugate for convolution
+      _complexOps.conjugate(waveletFFT, waveletFFT, paddedLength);
       
       // Multiply in frequency domain
       Complex[] product = new Complex[paddedLength];
-      for (int i = 0; i < paddedLength; i++) {
-        product[i] = signalFFT[i].mul(waveletFFT[i]);
-      }
+      _complexOps.multiply(signalFFT, waveletFFT, product, paddedLength);
       
       // Inverse FFT
       Complex[] result = computeIFFT(product);

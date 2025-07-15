@@ -2,6 +2,8 @@ package jwave.transforms;
 
 import jwave.transforms.wavelets.Wavelet;
 import jwave.transforms.wavelets.OptimizedWavelet;
+import jwave.transforms.wavelets.WaveletOperations;
+import jwave.transforms.wavelets.StandardWaveletOperations;
 import jwave.exceptions.JWaveException;
 import jwave.exceptions.JWaveFailure;
 import jwave.datatypes.natives.Complex;
@@ -169,6 +171,9 @@ public class MODWTTransform extends WaveletTransform {
     
     // Reference to FFT transform for FFT-based convolution
     protected transient FastFourierTransform fft;
+    
+    // Reference to wavelet operations for convolution
+    protected transient WaveletOperations waveletOps;
 
     /**
      * Constructor for the MODWTTransform.
@@ -181,6 +186,7 @@ public class MODWTTransform extends WaveletTransform {
     public MODWTTransform(Wavelet wavelet) {
         super(wavelet);
         this.fft = new FastFourierTransform(); // Default to standard FFT for backward compatibility
+        this.waveletOps = new StandardWaveletOperations(); // Default to standard operations
     }
     
     /**
@@ -193,6 +199,7 @@ public class MODWTTransform extends WaveletTransform {
         super(wavelet);
         this.fftConvolutionThreshold = fftThreshold;
         this.fft = new FastFourierTransform(); // Default to standard FFT for backward compatibility
+        this.waveletOps = new StandardWaveletOperations(); // Default to standard operations
     }
     
     /**
@@ -206,6 +213,7 @@ public class MODWTTransform extends WaveletTransform {
     public MODWTTransform(Wavelet wavelet, FastFourierTransform fft) {
         super(wavelet);
         this.fft = fft;
+        this.waveletOps = new StandardWaveletOperations(); // Default to standard operations
     }
     
     /**
@@ -218,6 +226,37 @@ public class MODWTTransform extends WaveletTransform {
     public MODWTTransform(Wavelet wavelet, FastFourierTransform fft, int fftThreshold) {
         super(wavelet);
         this.fft = fft;
+        this.fftConvolutionThreshold = fftThreshold;
+        this.waveletOps = new StandardWaveletOperations(); // Default to standard operations
+    }
+    
+    /**
+     * Constructor for MODWTTransform with full dependency injection.
+     * This allows users to inject both FFT and WaveletOperations implementations.
+     * 
+     * @param wavelet the wavelet to use for the transform
+     * @param fft the FFT implementation to use for FFT-based convolution
+     * @param waveletOps the wavelet operations implementation to use for convolution
+     */
+    public MODWTTransform(Wavelet wavelet, FastFourierTransform fft, WaveletOperations waveletOps) {
+        super(wavelet);
+        this.fft = fft;
+        this.waveletOps = waveletOps;
+    }
+    
+    /**
+     * Constructor for MODWTTransform with full dependency injection and custom threshold.
+     * 
+     * @param wavelet the wavelet to use for the transform
+     * @param fft the FFT implementation to use for FFT-based convolution
+     * @param waveletOps the wavelet operations implementation to use for convolution
+     * @param fftThreshold custom threshold for FFT-based convolution (N*M threshold)
+     */
+    public MODWTTransform(Wavelet wavelet, FastFourierTransform fft, WaveletOperations waveletOps, 
+                         int fftThreshold) {
+        super(wavelet);
+        this.fft = fft;
+        this.waveletOps = waveletOps;
         this.fftConvolutionThreshold = fftThreshold;
     }
     
@@ -706,9 +745,9 @@ public class MODWTTransform extends WaveletTransform {
      * @param filter The filter to convolve with
      * @return The convolution result with the same length as the signal
      */
-    private static double[] circularConvolve(double[] signal, double[] filter) {
-        // Use optimized SIMD-friendly convolution with stride=1 for MODWT
-        return OptimizedWavelet.circularConvolve(signal, filter, signal.length, filter.length, 1);
+    private double[] circularConvolve(double[] signal, double[] filter) {
+        // Use injected wavelet operations for convolution with stride=1 for MODWT
+        return waveletOps.circularConvolve(signal, filter, signal.length, filter.length, 1);
     }
 
     /**
@@ -726,9 +765,9 @@ public class MODWTTransform extends WaveletTransform {
      * @param filter The filter for adjoint convolution
      * @return The adjoint convolution result
      */
-    private static double[] circularConvolveAdjoint(double[] signal, double[] filter) {
-        // Use optimized SIMD-friendly adjoint convolution with stride=1 for MODWT
-        return OptimizedWavelet.circularConvolveAdjoint(signal, filter, signal.length, filter.length, 1);
+    private double[] circularConvolveAdjoint(double[] signal, double[] filter) {
+        // Use injected wavelet operations for adjoint convolution with stride=1 for MODWT
+        return waveletOps.circularConvolveAdjoint(signal, filter, signal.length, filter.length, 1);
     }
     
     /**
