@@ -69,8 +69,10 @@ public class SIMDComplexOperations implements ComplexOperations {
     /**
      * Growth factor for exponential buffer expansion.
      * Use 1.5x growth for better memory efficiency than 2x while maintaining good amortized performance.
+     * Implemented using integer arithmetic to avoid floating-point precision issues.
      */
-    private static final double GROWTH_FACTOR = 1.5;
+    private static final int GROWTH_NUMERATOR = 3;
+    private static final int GROWTH_DENOMINATOR = 2;
     
     /**
      * Thread-local buffers to reduce allocation overhead.
@@ -168,8 +170,10 @@ public class SIMDComplexOperations implements ComplexOperations {
             if (needsGrowth || shouldShrink) {
                 int newSize;
                 if (needsGrowth) {
-                    // Exponential growth strategy: grow by GROWTH_FACTOR but ensure we meet the request
-                    newSize = Math.max(size, (int)(currentSize * GROWTH_FACTOR));
+                    // Exponential growth strategy: grow by 1.5x using integer arithmetic to avoid floating-point precision issues
+                    // 1.5x growth = currentSize * 3 / 2 = currentSize + currentSize / 2
+                    int growthSize = currentSize + (currentSize / GROWTH_DENOMINATOR);
+                    newSize = Math.max(size, growthSize);
                     
                     // For very small sizes, ensure minimum reasonable growth
                     if (currentSize < INITIAL_BUFFER_SIZE) {

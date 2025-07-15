@@ -216,7 +216,7 @@ public class PerformanceComparisonExample {
             throw new IllegalArgumentException("At least one test size must be specified");
         }
         for (int size : testSizes) {
-            if (size <= 0 || (size & (size - 1)) != 0) {
+            if (size <= 0 || !isPowerOfTwo(size)) {
                 throw new IllegalArgumentException("Test sizes must be positive powers of 2: " + size);
             }
         }
@@ -229,6 +229,26 @@ public class PerformanceComparisonExample {
             sizes[i] = Integer.parseInt(parts[i].trim());
         }
         return sizes;
+    }
+    
+    /**
+     * Checks if a number is a power of 2.
+     * 
+     * <p>Uses bit manipulation: a number is a power of 2 if and only if
+     * it has exactly one bit set. The expression (n & (n-1)) clears the
+     * lowest set bit, so it equals 0 only for powers of 2.</p>
+     * 
+     * <p>Examples:</p>
+     * <ul>
+     *   <li>8 (1000₂): 8 & 7 (0111₂) = 0 ✓</li>
+     *   <li>6 (0110₂): 6 & 5 (0101₂) = 4 ≠ 0 ✗</li>
+     * </ul>
+     * 
+     * @param n the number to check
+     * @return true if n is a positive power of 2, false otherwise
+     */
+    private static boolean isPowerOfTwo(int n) {
+        return n > 0 && (n & (n - 1)) == 0;
     }
     
     private static void printUsage() {
