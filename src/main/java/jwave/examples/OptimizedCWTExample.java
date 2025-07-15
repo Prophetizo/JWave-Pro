@@ -25,6 +25,8 @@ package jwave.examples;
 
 import jwave.transforms.ContinuousWaveletTransform;
 import jwave.transforms.CWTResult;
+import jwave.transforms.FastFourierTransform;
+import jwave.transforms.OptimizedFastFourierTransform;
 import jwave.transforms.wavelets.continuous.MexicanHatWavelet;
 import jwave.transforms.wavelets.continuous.MorletWavelet;
 import jwave.datatypes.natives.Complex;
@@ -74,9 +76,10 @@ public class OptimizedCWTExample {
             signal[i] = Math.sin(2 * Math.PI * 150 * t);
         }
         
-        // Create CWT with Morlet wavelet (optimized version is used internally)
+        // Create CWT with Morlet wavelet and inject OptimizedFastFourierTransform
         MorletWavelet motherWavelet = new MorletWavelet();
-        ContinuousWaveletTransform cwt = new ContinuousWaveletTransform(motherWavelet);
+        OptimizedFastFourierTransform optimizedFFT = new OptimizedFastFourierTransform();
+        ContinuousWaveletTransform cwt = new ContinuousWaveletTransform(motherWavelet, optimizedFFT);
         
         // Define scales to analyze (corresponding to frequencies)
         int numScales = 32;
@@ -152,9 +155,10 @@ public class OptimizedCWTExample {
             signal[i] += 0.1 * (Math.random() - 0.5);
         }
         
-        // Setup CWT with Mexican Hat wavelet
+        // Setup CWT with Mexican Hat wavelet and inject OptimizedFastFourierTransform
         MexicanHatWavelet motherWavelet = new MexicanHatWavelet();
-        ContinuousWaveletTransform cwt = new ContinuousWaveletTransform(motherWavelet);
+        OptimizedFastFourierTransform optimizedFFT = new OptimizedFastFourierTransform();
+        ContinuousWaveletTransform cwt = new ContinuousWaveletTransform(motherWavelet, optimizedFFT);
         
         // Define frequency range to analyze
         double minFreq = 20.0;
@@ -215,14 +219,14 @@ public class OptimizedCWTExample {
         
         for (int i = 0; i < signalLength; i++) {
             double t = i / samplingRate;
-            double instantFreq = f0 + (f1 - f0) * t / T;
             double phase = 2 * Math.PI * (f0 * t + (f1 - f0) * t * t / (2 * T));
             signal[i] = Math.cos(phase);
         }
         
-        // Use Morlet wavelet for time-frequency analysis
+        // Use Morlet wavelet for time-frequency analysis with optimized FFT
         MorletWavelet morlet = new MorletWavelet();
-        ContinuousWaveletTransform cwt = new ContinuousWaveletTransform(morlet);
+        OptimizedFastFourierTransform optimizedFFT = new OptimizedFastFourierTransform();
+        ContinuousWaveletTransform cwt = new ContinuousWaveletTransform(morlet, optimizedFFT);
         
         // Define logarithmic scale distribution
         int numScales = 64;
@@ -273,10 +277,10 @@ public class OptimizedCWTExample {
         }
         
         System.out.println("\nOptimization Note:");
-        System.out.println("The CWT implementation automatically uses:");
-        System.out.println("- OptimizedFastFourierTransform for frequency domain operations");
-        System.out.println("- OptimizedComplex for bulk complex multiplications");
-        System.out.println("- Parallel processing for multiple scales");
+        System.out.println("This example demonstrates dependency injection of OptimizedFastFourierTransform:");
+        System.out.println("- OptimizedFastFourierTransform injected via constructor for better performance");
+        System.out.println("- OptimizedComplex used internally for bulk complex multiplications");
+        System.out.println("- Parallel processing available via transformFFTParallel() method");
         System.out.println("- Resulting in 2-3x performance improvement over standard implementation");
     }
 }

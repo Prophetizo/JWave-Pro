@@ -180,7 +180,7 @@ public class MODWTTransform extends WaveletTransform {
      */
     public MODWTTransform(Wavelet wavelet) {
         super(wavelet);
-        this.fft = new OptimizedFastFourierTransform();
+        this.fft = new FastFourierTransform(); // Default to standard FFT for backward compatibility
     }
     
     /**
@@ -192,7 +192,33 @@ public class MODWTTransform extends WaveletTransform {
     public MODWTTransform(Wavelet wavelet, int fftThreshold) {
         super(wavelet);
         this.fftConvolutionThreshold = fftThreshold;
-        this.fft = new OptimizedFastFourierTransform();
+        this.fft = new FastFourierTransform(); // Default to standard FFT for backward compatibility
+    }
+    
+    /**
+     * Constructor for MODWTTransform with custom FFT implementation.
+     * This allows users to inject their preferred FFT implementation,
+     * including the OptimizedFastFourierTransform for better performance.
+     * 
+     * @param wavelet the wavelet to use for the transform
+     * @param fft the FFT implementation to use for FFT-based convolution
+     */
+    public MODWTTransform(Wavelet wavelet, FastFourierTransform fft) {
+        super(wavelet);
+        this.fft = fft;
+    }
+    
+    /**
+     * Constructor for MODWTTransform with custom FFT implementation and threshold.
+     * 
+     * @param wavelet the wavelet to use for the transform
+     * @param fft the FFT implementation to use for FFT-based convolution
+     * @param fftThreshold custom threshold for FFT-based convolution (N*M threshold)
+     */
+    public MODWTTransform(Wavelet wavelet, FastFourierTransform fft, int fftThreshold) {
+        super(wavelet);
+        this.fft = fft;
+        this.fftConvolutionThreshold = fftThreshold;
     }
     
     /**
@@ -212,6 +238,7 @@ public class MODWTTransform extends WaveletTransform {
     public ConvolutionMethod getConvolutionMethod() {
         return this.convolutionMethod;
     }
+    
     
     /**
      * Returns the maximum supported decomposition level.
@@ -457,7 +484,7 @@ public class MODWTTransform extends WaveletTransform {
                 if (!cacheInitialized || g_modwt_base == null) {
                     // Initialize FFT if needed
                     if (fft == null) {
-                        fft = new OptimizedFastFourierTransform();
+                        fft = new FastFourierTransform();
                     }
                     // Compute base MODWT filters
                     double[] g_dwt = Arrays.copyOf(_wavelet.getScalingDeComposition(), 

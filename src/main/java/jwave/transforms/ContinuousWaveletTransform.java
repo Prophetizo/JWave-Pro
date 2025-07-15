@@ -47,6 +47,11 @@ public class ContinuousWaveletTransform extends BasicTransform {
    * The continuous wavelet to use for the transform.
    */
   private ContinuousWavelet _wavelet;
+  
+  /**
+   * The FFT implementation to use for frequency domain operations.
+   */
+  private final FastFourierTransform _fft;
 
   /**
    * Parallelization thresholds for different signal sizes.
@@ -86,6 +91,7 @@ public class ContinuousWaveletTransform extends BasicTransform {
 
   /**
    * Constructor with a continuous wavelet.
+   * Uses FastFourierTransform by default for backward compatibility.
    * 
    * @param wavelet the continuous wavelet to use
    */
@@ -95,15 +101,40 @@ public class ContinuousWaveletTransform extends BasicTransform {
 
   /**
    * Constructor with a continuous wavelet and padding type.
+   * Uses FastFourierTransform by default for backward compatibility.
    * 
    * @param wavelet the continuous wavelet to use
    * @param paddingType the padding type for boundary handling
    */
   public ContinuousWaveletTransform(ContinuousWavelet wavelet, PaddingType paddingType) {
+    this(wavelet, paddingType, new FastFourierTransform());
+  }
+  
+  /**
+   * Constructor with a continuous wavelet and FFT implementation.
+   * 
+   * @param wavelet the continuous wavelet to use
+   * @param fft the FFT implementation to use
+   */
+  public ContinuousWaveletTransform(ContinuousWavelet wavelet, FastFourierTransform fft) {
+    this(wavelet, PaddingType.SYMMETRIC, fft);
+  }
+  
+  /**
+   * Constructor with a continuous wavelet, padding type, and FFT implementation.
+   * This is the primary constructor that allows full customization.
+   * 
+   * @param wavelet the continuous wavelet to use
+   * @param paddingType the padding type for boundary handling
+   * @param fft the FFT implementation to use
+   */
+  public ContinuousWaveletTransform(ContinuousWavelet wavelet, PaddingType paddingType, 
+                                    FastFourierTransform fft) {
     super();
     _name = "Continuous Wavelet Transform (" + wavelet.getName() + ")";
     _wavelet = wavelet;
     _paddingType = paddingType;
+    _fft = fft;
   }
 
   /**
@@ -341,9 +372,8 @@ public class ContinuousWaveletTransform extends BasicTransform {
       complexSignal[i] = new Complex(signal[i], 0);
     }
     
-    // Use JWave's Optimized Fast Fourier Transform (O(n log n) complexity with SIMD)
-    OptimizedFastFourierTransform fft = new OptimizedFastFourierTransform();
-    return fft.forward(complexSignal);
+    // Use the injected FFT implementation
+    return _fft.forward(complexSignal);
   }
 
   /**
@@ -355,9 +385,8 @@ public class ContinuousWaveletTransform extends BasicTransform {
    * @return complex time domain result
    */
   private Complex[] computeIFFT(Complex[] spectrum) {
-    // Use JWave's Optimized Fast Fourier Transform (O(n log n) complexity with SIMD)
-    OptimizedFastFourierTransform fft = new OptimizedFastFourierTransform();
-    return fft.reverse(spectrum);
+    // Use the injected FFT implementation
+    return _fft.reverse(spectrum);
   }
 
   /**
