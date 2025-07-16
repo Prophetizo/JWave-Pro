@@ -162,7 +162,7 @@ public class OptimizedFFTPerformanceTest {
             } else if (n <= 4096) {
                 cacheEfficiency = "L2/L3 cache";
             } else {
-                cacheEfficiency = "Memory bound";
+                cacheEfficiency = "Memory-bound";
             }
             
             System.out.printf("%-10d %-15.3f %-15.3f %-15.2fx %-20s%n",
