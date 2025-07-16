@@ -275,7 +275,7 @@ public class OptimizedFastFourierTransform extends FastFourierTransform {
         int n = arrTime.length;
         
         // Use optimized algorithm for large power-of-2 sizes
-        if (n >= 64 && MathUtils.isPowerOfTwo(n)) {
+        if (n >= OptimizationConstants.FFT_OPTIMIZATION_THRESHOLD && MathUtils.isPowerOfTwo(n)) {
             // Convert to complex using optimized approach
             Complex[] complex = new Complex[n];
             for (int i = 0; i < n; i++) {
