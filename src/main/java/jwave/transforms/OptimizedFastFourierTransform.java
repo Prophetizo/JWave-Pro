@@ -46,18 +46,6 @@ public class OptimizedFastFourierTransform extends FastFourierTransform {
     private static final int CACHE_LINE_DOUBLES = OptimizationConstants.DOUBLES_PER_CACHE_LINE;
     
     /**
-     * Minimum size threshold for using optimized implementation.
-     * 
-     * Value of 64 chosen based on:
-     * - 64 elements = 512 bytes (8 bytes per double), fitting in L1 cache
-     * - Below this size, overhead of array conversion and separate real/imag processing exceeds benefits
-     * - SIMD instructions (AVX) process 4 doubles at once; 64 gives 16 SIMD operations per array
-     * - Empirical testing shows diminishing returns below this threshold
-     * - Matches common FFT radix sizes (radix-4 needs 64+ elements for 3+ stages)
-     */
-    private static final int OPTIMIZATION_THRESHOLD = 64;
-    
-    /**
      * Constructor
      */
     public OptimizedFastFourierTransform() {
@@ -70,7 +58,7 @@ public class OptimizedFastFourierTransform extends FastFourierTransform {
         int n = x.length;
         
         // Use parent implementation for small or non-power-of-2 sizes
-        if (n < OPTIMIZATION_THRESHOLD || !MathUtils.isPowerOfTwo(n)) {
+        if (n < OptimizationConstants.FFT_OPTIMIZATION_THRESHOLD || !MathUtils.isPowerOfTwo(n)) {
             return super.forward(x);
         }
         
@@ -86,7 +74,7 @@ public class OptimizedFastFourierTransform extends FastFourierTransform {
         int n = x.length;
         
         // Use parent implementation for small or non-power-of-2 sizes
-        if (n < OPTIMIZATION_THRESHOLD || !MathUtils.isPowerOfTwo(n)) {
+        if (n < OptimizationConstants.FFT_OPTIMIZATION_THRESHOLD || !MathUtils.isPowerOfTwo(n)) {
             return super.reverse(x);
         }
         
