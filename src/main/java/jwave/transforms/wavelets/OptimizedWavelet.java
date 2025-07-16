@@ -41,6 +41,14 @@ import jwave.utils.OptimizationConstants;
 public class OptimizedWavelet {
     
     /**
+     * Loop unroll factor optimized for SIMD operations.
+     * Value of 4 chosen to match common SIMD vector widths (4 doubles in AVX).
+     * This is hardcoded separately from OptimizationConstants.UNROLL_FACTOR
+     * to ensure the manual unrolling in this class remains consistent.
+     */
+    private static final int SIMD_UNROLL = 4;
+    
+    /**
      * Private constructor to prevent instantiation.
      * This is a utility class with only static methods.
      * 
@@ -85,10 +93,9 @@ public class OptimizedWavelet {
         if (baseIdx + filterLength <= length) {
             // Fast path: no wrap-around needed
             int j = 0;
-            // Process in chunks of 4 for optimal SIMD vectorization
-            // This is hardcoded for performance, but documented clearly
-            for (; j + 4 <= filterLength; j += 4) {
-                // Manual unrolling by 4 for best JVM optimization
+            // Process in chunks of SIMD_UNROLL for optimal vectorization
+            for (; j + SIMD_UNROLL <= filterLength; j += SIMD_UNROLL) {
+                // Manual unrolling by SIMD_UNROLL for best JVM optimization
                 sum += arrTime[baseIdx + j] * coefficients[j]
                      + arrTime[baseIdx + j + 1] * coefficients[j + 1]
                      + arrTime[baseIdx + j + 2] * coefficients[j + 2]
@@ -105,7 +112,7 @@ public class OptimizedWavelet {
             
             // Process elements before wrap-around
             int maxBeforeWrap = Math.min(filterLength, length - baseIdx);
-            for (; j + 4 <= maxBeforeWrap; j += 4) {
+            for (; j + SIMD_UNROLL <= maxBeforeWrap; j += SIMD_UNROLL) {
                 // Direct access without modulo for elements before wrap
                 sum += arrTime[baseIdx + j] * coefficients[j]
                      + arrTime[baseIdx + j + 1] * coefficients[j + 1]
@@ -151,8 +158,8 @@ public class OptimizedWavelet {
         if (baseIdx + filterLength <= length) {
             // Fast path: no wrap-around needed
             int j = 0;
-            for (; j + 4 <= filterLength; j += 4) {
-                // Direct array access without modulo - unrolled by 4
+            for (; j + SIMD_UNROLL <= filterLength; j += SIMD_UNROLL) {
+                // Direct array access without modulo - unrolled by SIMD_UNROLL
                 arrTime[baseIdx + j] += scalingCoeff * scalingReCon[j] + waveletCoeff * waveletReCon[j];
                 arrTime[baseIdx + j + 1] += scalingCoeff * scalingReCon[j + 1] + waveletCoeff * waveletReCon[j + 1];
                 arrTime[baseIdx + j + 2] += scalingCoeff * scalingReCon[j + 2] + waveletCoeff * waveletReCon[j + 2];
@@ -169,8 +176,8 @@ public class OptimizedWavelet {
             
             // Process elements before wrap-around
             int maxBeforeWrap = Math.min(filterLength, length - baseIdx);
-            for (; j + 4 <= maxBeforeWrap; j += 4) {
-                // Direct access without modulo for elements before wrap - unrolled by 4
+            for (; j + SIMD_UNROLL <= maxBeforeWrap; j += SIMD_UNROLL) {
+                // Direct access without modulo for elements before wrap - unrolled by SIMD_UNROLL
                 arrTime[baseIdx + j] += scalingCoeff * scalingReCon[j] + waveletCoeff * waveletReCon[j];
                 arrTime[baseIdx + j + 1] += scalingCoeff * scalingReCon[j + 1] + waveletCoeff * waveletReCon[j + 1];
                 arrTime[baseIdx + j + 2] += scalingCoeff * scalingReCon[j + 2] + waveletCoeff * waveletReCon[j + 2];
@@ -286,7 +293,7 @@ public class OptimizedWavelet {
                 if (n >= filterLength - 1) {
                     // Fast path: no wrap-around needed
                     int k = 0;
-                    for (; k + 4 <= filterLength; k += 4) {
+                    for (; k + SIMD_UNROLL <= filterLength; k += SIMD_UNROLL) {
                         // Direct array access without modulo
                         sum += signal[n - k] * filter[k]
                              + signal[n - k - 1] * filter[k + 1]
@@ -304,7 +311,7 @@ public class OptimizedWavelet {
                     
                     // Process elements before wrap-around
                     int maxBeforeWrap = n + 1;
-                    for (; k + 4 <= maxBeforeWrap; k += 4) {
+                    for (; k + SIMD_UNROLL <= maxBeforeWrap; k += SIMD_UNROLL) {
                         // Direct access without modulo for elements before wrap
                         if (k + 3 < maxBeforeWrap) {
                             sum += signal[n - k] * filter[k]
@@ -313,10 +320,10 @@ public class OptimizedWavelet {
                                  + signal[n - k - 3] * filter[k + 3];
                         } else {
                             // Handle partial unroll at boundary
-                            for (int j = 0; j < 4 && k + j < maxBeforeWrap; j++) {
+                            for (int j = 0; j < SIMD_UNROLL && k + j < maxBeforeWrap; j++) {
                                 sum += signal[n - k - j] * filter[k + j];
                             }
-                            k += 4;
+                            k += SIMD_UNROLL;
                             break;
                         }
                     }
