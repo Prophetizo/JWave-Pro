@@ -44,6 +44,9 @@ public class OptimizedFFTPerformanceTest {
     private FastFourierTransform standardFft;
     private OptimizedFastFourierTransform optimizedFft;
     
+    // Volatile field to prevent dead code elimination in benchmarks
+    private volatile double lastChecksum;
+    
     @Before
     public void setUp() {
         standardFft = new FastFourierTransform();
@@ -281,14 +284,17 @@ public class OptimizedFFTPerformanceTest {
     private long benchmarkRealFFT(BasicTransform fft, double[] signal, int iterations) 
             throws JWaveException {
         long startTime = System.nanoTime();
+        double checksum = 0.0;
         
         for (int i = 0; i < iterations; i++) {
             double[] result = fft.forward(signal);
-            // Ensure result is used
-            if (result[0] == Double.MAX_VALUE) {
-                fail("This should never happen");
-            }
+            // Prevent optimization by computing a simple checksum
+            checksum += result[0] + result[result.length - 1];
         }
+        
+        // Use checksum to prevent dead code elimination
+        // Store in volatile field if needed to ensure it's not optimized away
+        this.lastChecksum = checksum;
         
         return (System.nanoTime() - startTime) / 1_000_000; // Convert to milliseconds
     }

@@ -7,7 +7,7 @@ package jwave.datatypes.natives;
 
 /**
  * Demo program to show the performance improvement of SIMD-optimized complex operations.
- * Run with: mvn test -Dtest=ComplexPerformanceDemo#main
+ * Run with: mvn exec:java -Dexec.mainClass="jwave.datatypes.natives.ComplexPerformanceDemo" -Dexec.classpathScope=test
  * 
  * @author Stephen Romano
  * @date 15.07.2025

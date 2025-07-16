@@ -167,10 +167,8 @@ public class OptimizedFastFourierTransform extends FastFourierTransform {
     }
     
     /**
-     * Pre-compute twiddle factors for all stages.
-     */
-    /**
      * Container for pre-computed twiddle factors.
+     * Stores both real and imaginary components for efficient access.
      */
     private static class TwiddleFactors {
         final double[][] real;

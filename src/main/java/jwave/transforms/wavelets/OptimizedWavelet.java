@@ -42,8 +42,13 @@ public class OptimizedWavelet {
     
     /**
      * Private constructor to prevent instantiation.
+     * This is a utility class with only static methods.
+     * 
+     * @throws AssertionError if instantiation is attempted
      */
-    private OptimizedWavelet() {}
+    private OptimizedWavelet() {
+        throw new AssertionError("Cannot instantiate utility class");
+    }
     
     /**
      * Performs an unrolled convolution loop for better performance.

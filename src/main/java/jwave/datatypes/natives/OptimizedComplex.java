@@ -42,8 +42,13 @@ public class OptimizedComplex {
     
     /**
      * Private constructor to prevent instantiation.
+     * This is a utility class with only static methods.
+     * 
+     * @throws AssertionError if instantiation is attempted
      */
-    private OptimizedComplex() {}
+    private OptimizedComplex() {
+        throw new AssertionError("Cannot instantiate utility class");
+    }
     
     /**
      * Add two complex arrays in bulk.
