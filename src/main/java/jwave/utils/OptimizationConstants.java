@@ -69,15 +69,18 @@ public final class OptimizationConstants {
     
     /**
      * Minimum size threshold for using optimized FFT implementation.
-     * 
-     * Value of 64 chosen based on:
+     * Value chosen to balance performance and overhead for small arrays.
+     */
+    public static final int FFT_OPTIMIZATION_THRESHOLD = 64;
+    
+    /*
+     * Detailed rationale for FFT_OPTIMIZATION_THRESHOLD:
      * - 64 elements = 512 bytes (8 bytes per double), fitting in L1 cache
      * - Below this size, overhead of array conversion and separate real/imag processing exceeds benefits
      * - SIMD instructions (AVX) process 4 doubles at once; 64 gives 16 SIMD operations per array
      * - Empirical testing shows diminishing returns below this threshold
      * - Matches common FFT radix sizes (radix-4 needs 64+ elements for 3+ stages)
      */
-    public static final int FFT_OPTIMIZATION_THRESHOLD = 64;
     
     // Private constructor to prevent instantiation
     private OptimizationConstants() {
