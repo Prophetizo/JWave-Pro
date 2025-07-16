@@ -24,6 +24,7 @@
 package jwave.transforms;
 
 import jwave.datatypes.natives.Complex;
+import jwave.datatypes.natives.OptimizedComplex;
 import jwave.exceptions.JWaveException;
 import jwave.utils.MathUtils;
 import jwave.utils.OptimizationConstants;
@@ -96,10 +97,8 @@ public class OptimizedFastFourierTransform extends FastFourierTransform {
         double[] real = new double[n];
         double[] imag = new double[n];
         
-        for (int i = 0; i < n; i++) {
-            real[i] = x[i].getReal();
-            imag[i] = x[i].getImag();
-        }
+        // Use optimized conversion with loop unrolling
+        OptimizedComplex.toSeparateArrays(x, real, imag);
         
         // Bit reversal
         bitReversalOptimized(real, imag);
@@ -128,14 +127,15 @@ public class OptimizedFastFourierTransform extends FastFourierTransform {
         // Copy back and normalize if inverse
         if (inverse) {
             double norm = 1.0 / n;
+            // First scale the arrays
             for (int i = 0; i < n; i++) {
-                x[i] = new Complex(real[i] * norm, imag[i] * norm);
-            }
-        } else {
-            for (int i = 0; i < n; i++) {
-                x[i] = new Complex(real[i], imag[i]);
+                real[i] *= norm;
+                imag[i] *= norm;
             }
         }
+        
+        // Use optimized conversion with loop unrolling
+        OptimizedComplex.fromSeparateArrays(real, imag, x);
     }
     
     /**

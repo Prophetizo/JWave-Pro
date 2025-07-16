@@ -85,8 +85,10 @@ public class OptimizedWavelet {
         if (baseIdx + filterLength <= length) {
             // Fast path: no wrap-around needed
             int j = 0;
-            for (; j + OptimizationConstants.UNROLL_FACTOR <= filterLength; j += OptimizationConstants.UNROLL_FACTOR) {
-                // Direct array access without modulo
+            // Process in chunks of 4 for optimal SIMD vectorization
+            // This is hardcoded for performance, but documented clearly
+            for (; j + 4 <= filterLength; j += 4) {
+                // Manual unrolling by 4 for best JVM optimization
                 sum += arrTime[baseIdx + j] * coefficients[j]
                      + arrTime[baseIdx + j + 1] * coefficients[j + 1]
                      + arrTime[baseIdx + j + 2] * coefficients[j + 2]
@@ -103,7 +105,7 @@ public class OptimizedWavelet {
             
             // Process elements before wrap-around
             int maxBeforeWrap = Math.min(filterLength, length - baseIdx);
-            for (; j + OptimizationConstants.UNROLL_FACTOR <= maxBeforeWrap; j += OptimizationConstants.UNROLL_FACTOR) {
+            for (; j + 4 <= maxBeforeWrap; j += 4) {
                 // Direct access without modulo for elements before wrap
                 sum += arrTime[baseIdx + j] * coefficients[j]
                      + arrTime[baseIdx + j + 1] * coefficients[j + 1]
@@ -149,8 +151,8 @@ public class OptimizedWavelet {
         if (baseIdx + filterLength <= length) {
             // Fast path: no wrap-around needed
             int j = 0;
-            for (; j + OptimizationConstants.UNROLL_FACTOR <= filterLength; j += OptimizationConstants.UNROLL_FACTOR) {
-                // Direct array access without modulo
+            for (; j + 4 <= filterLength; j += 4) {
+                // Direct array access without modulo - unrolled by 4
                 arrTime[baseIdx + j] += scalingCoeff * scalingReCon[j] + waveletCoeff * waveletReCon[j];
                 arrTime[baseIdx + j + 1] += scalingCoeff * scalingReCon[j + 1] + waveletCoeff * waveletReCon[j + 1];
                 arrTime[baseIdx + j + 2] += scalingCoeff * scalingReCon[j + 2] + waveletCoeff * waveletReCon[j + 2];
@@ -167,8 +169,8 @@ public class OptimizedWavelet {
             
             // Process elements before wrap-around
             int maxBeforeWrap = Math.min(filterLength, length - baseIdx);
-            for (; j + OptimizationConstants.UNROLL_FACTOR <= maxBeforeWrap; j += OptimizationConstants.UNROLL_FACTOR) {
-                // Direct access without modulo for elements before wrap
+            for (; j + 4 <= maxBeforeWrap; j += 4) {
+                // Direct access without modulo for elements before wrap - unrolled by 4
                 arrTime[baseIdx + j] += scalingCoeff * scalingReCon[j] + waveletCoeff * waveletReCon[j];
                 arrTime[baseIdx + j + 1] += scalingCoeff * scalingReCon[j + 1] + waveletCoeff * waveletReCon[j + 1];
                 arrTime[baseIdx + j + 2] += scalingCoeff * scalingReCon[j + 2] + waveletCoeff * waveletReCon[j + 2];
@@ -284,7 +286,7 @@ public class OptimizedWavelet {
                 if (n >= filterLength - 1) {
                     // Fast path: no wrap-around needed
                     int k = 0;
-                    for (; k + OptimizationConstants.UNROLL_FACTOR <= filterLength; k += OptimizationConstants.UNROLL_FACTOR) {
+                    for (; k + 4 <= filterLength; k += 4) {
                         // Direct array access without modulo
                         sum += signal[n - k] * filter[k]
                              + signal[n - k - 1] * filter[k + 1]
@@ -302,7 +304,7 @@ public class OptimizedWavelet {
                     
                     // Process elements before wrap-around
                     int maxBeforeWrap = n + 1;
-                    for (; k + OptimizationConstants.UNROLL_FACTOR <= maxBeforeWrap; k += OptimizationConstants.UNROLL_FACTOR) {
+                    for (; k + 4 <= maxBeforeWrap; k += 4) {
                         // Direct access without modulo for elements before wrap
                         if (k + 3 < maxBeforeWrap) {
                             sum += signal[n - k] * filter[k]
@@ -311,10 +313,10 @@ public class OptimizedWavelet {
                                  + signal[n - k - 3] * filter[k + 3];
                         } else {
                             // Handle partial unroll at boundary
-                            for (int j = 0; j < OptimizationConstants.UNROLL_FACTOR && k + j < maxBeforeWrap; j++) {
+                            for (int j = 0; j < 4 && k + j < maxBeforeWrap; j++) {
                                 sum += signal[n - k - j] * filter[k + j];
                             }
-                            k += OptimizationConstants.UNROLL_FACTOR;
+                            k += 4;
                             break;
                         }
                     }
