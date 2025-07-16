@@ -69,6 +69,6 @@ public final class OptimizationConstants {
     
     // Private constructor to prevent instantiation
     private OptimizationConstants() {
-        throw new AssertionError("Cannot instantiate utility class");
+        throw new AssertionError("Cannot instantiate OptimizationConstants utility class");
     }
 }
