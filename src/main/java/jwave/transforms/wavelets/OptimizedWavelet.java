@@ -262,25 +262,55 @@ public class OptimizedWavelet {
             for (int n = 0; n < signalLength; n++) {
                 double sum = 0.0;
                 
-                // Unrolled inner loop
-                int k = 0;
-                for (; k + OptimizationConstants.UNROLL_FACTOR <= filterLength; k += OptimizationConstants.UNROLL_FACTOR) {
-                    // Circular indexing with modulo optimization
-                    int idx0 = (n - k + signalLength) % signalLength;
-                    int idx1 = (n - k - 1 + signalLength) % signalLength;
-                    int idx2 = (n - k - 2 + signalLength) % signalLength;
-                    int idx3 = (n - k - 3 + signalLength) % signalLength;
+                // Check if we can avoid modulo operations
+                if (n >= filterLength - 1) {
+                    // Fast path: no wrap-around needed
+                    int k = 0;
+                    for (; k + OptimizationConstants.UNROLL_FACTOR <= filterLength; k += OptimizationConstants.UNROLL_FACTOR) {
+                        // Direct array access without modulo
+                        sum += signal[n - k] * filter[k]
+                             + signal[n - k - 1] * filter[k + 1]
+                             + signal[n - k - 2] * filter[k + 2]
+                             + signal[n - k - 3] * filter[k + 3];
+                    }
                     
-                    sum += signal[idx0] * filter[k]
-                         + signal[idx1] * filter[k + 1]
-                         + signal[idx2] * filter[k + 2]
-                         + signal[idx3] * filter[k + 3];
-                }
-                
-                // Handle remaining elements
-                for (; k < filterLength; k++) {
-                    int idx = (n - k + signalLength) % signalLength;
-                    sum += signal[idx] * filter[k];
+                    // Handle remaining elements
+                    for (; k < filterLength; k++) {
+                        sum += signal[n - k] * filter[k];
+                    }
+                } else {
+                    // Slow path: handle wrap-around with optimized modulo
+                    int k = 0;
+                    
+                    // Process elements before wrap-around
+                    int maxBeforeWrap = n + 1;
+                    for (; k + OptimizationConstants.UNROLL_FACTOR <= maxBeforeWrap; k += OptimizationConstants.UNROLL_FACTOR) {
+                        // Direct access without modulo for elements before wrap
+                        if (k + 3 < maxBeforeWrap) {
+                            sum += signal[n - k] * filter[k]
+                                 + signal[n - k - 1] * filter[k + 1]
+                                 + signal[n - k - 2] * filter[k + 2]
+                                 + signal[n - k - 3] * filter[k + 3];
+                        } else {
+                            // Handle partial unroll at boundary
+                            for (int j = 0; j < OptimizationConstants.UNROLL_FACTOR && k + j < maxBeforeWrap; j++) {
+                                sum += signal[n - k - j] * filter[k + j];
+                            }
+                            k += OptimizationConstants.UNROLL_FACTOR;
+                            break;
+                        }
+                    }
+                    
+                    // Handle remaining elements before wrap
+                    for (; k < maxBeforeWrap && k < filterLength; k++) {
+                        sum += signal[n - k] * filter[k];
+                    }
+                    
+                    // Handle wrapped elements (indices go from end of array)
+                    for (; k < filterLength; k++) {
+                        int idx = n - k + signalLength; // This wraps to the end of the array
+                        sum += signal[idx] * filter[k];
+                    }
                 }
                 
                 result[n] = sum;
