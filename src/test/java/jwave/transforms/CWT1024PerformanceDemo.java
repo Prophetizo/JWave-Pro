@@ -27,18 +27,17 @@ import jwave.datatypes.natives.Complex;
 import jwave.datatypes.natives.OptimizedComplex;
 import jwave.transforms.wavelets.continuous.MorletWavelet;
 import jwave.exceptions.JWaveException;
-import org.junit.Ignore;
+
 import java.util.Random;
 
 /**
  * Demonstration of CWT performance improvements with SIMD optimizations for 1024 samples.
  * 
- * This is a performance demo, not a test. It's marked with @Ignore to prevent
- * it from running during automated test execution.
+ * This is a performance demo, not a test. It should be excluded from automated
+ * test execution via build system or test framework configuration.
  * 
  * @author Stephen Romano
  */
-@Ignore("Performance demo - not a test")
 public class CWT1024PerformanceDemo {
     
     private static final int SIGNAL_LENGTH = 1024;
