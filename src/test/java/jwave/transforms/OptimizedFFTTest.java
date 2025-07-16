@@ -29,6 +29,8 @@ import org.junit.Before;
 
 import jwave.datatypes.natives.Complex;
 import jwave.exceptions.JWaveException;
+import jwave.PerformanceTestConfig;
+import java.util.Random;
 
 /**
  * Test suite for Optimized Fast Fourier Transform implementation.
@@ -42,11 +44,13 @@ public class OptimizedFFTTest {
     private static final double DELTA = 1e-10;
     private OptimizedFastFourierTransform optimizedFft;
     private FastFourierTransform standardFft;
+    private Random random;
     
     @Before
     public void setUp() {
         optimizedFft = new OptimizedFastFourierTransform();
         standardFft = new FastFourierTransform();
+        random = new Random(PerformanceTestConfig.RANDOM_SEED);
     }
     
     /**
@@ -142,7 +146,7 @@ public class OptimizedFFTTest {
             // Generate test signal
             double[] signal = new double[n];
             for (int i = 0; i < n; i++) {
-                signal[i] = Math.random() - 0.5;
+                signal[i] = random.nextDouble() - 0.5;
             }
             
             // Should fall back to standard implementation

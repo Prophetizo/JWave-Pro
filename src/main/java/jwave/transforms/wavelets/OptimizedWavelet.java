@@ -182,7 +182,7 @@ public class OptimizedWavelet {
             
             // Handle wrapped elements
             for (; j < filterLength; j++) {
-                int k = (baseIdx + j) % length; // Use modulo to ensure correct wrapping
+                int k = circularIndex(baseIdx + j, length);
                 arrTime[k] += scalingCoeff * scalingReCon[j] + waveletCoeff * waveletReCon[j];
             }
         }
@@ -367,6 +367,7 @@ public class OptimizedWavelet {
         int signalLength = signal.length;
         double[][] decomposition = new double[levels + 1][];
         double[] current = signal.clone();
+        int actualLevels = 0;
         
         for (int level = 0; level < levels; level++) {
             int currentLength = signalLength >> level;
@@ -387,10 +388,18 @@ public class OptimizedWavelet {
             // Prepare for next level (keep only scaling coefficients)
             current = new double[h];
             System.arraycopy(transformed, 0, current, 0, h);
+            actualLevels = level + 1;
         }
         
         // Store final scaling coefficients
-        decomposition[levels] = current;
+        decomposition[actualLevels] = current;
+        
+        // Resize array to actual number of levels if we stopped early
+        if (actualLevels < levels) {
+            double[][] resized = new double[actualLevels + 1][];
+            System.arraycopy(decomposition, 0, resized, 0, actualLevels + 1);
+            decomposition = resized;
+        }
         
         return decomposition;
     }
