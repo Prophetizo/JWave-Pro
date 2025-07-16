@@ -30,6 +30,7 @@ import org.junit.Before;
 
 import jwave.datatypes.natives.Complex;
 import jwave.exceptions.JWaveException;
+import jwave.PerformanceTestConfig;
 
 /**
  * Performance comparison between standard FFT and optimized FFT.
@@ -37,9 +38,6 @@ import jwave.exceptions.JWaveException;
  * @author Stephen Romano
  */
 public class OptimizedFFTPerformanceTest {
-
-    private static final boolean RUN_PERFORMANCE_TESTS = 
-        Boolean.getBoolean("enablePerformanceTests");
     
     private FastFourierTransform standardFft;
     private OptimizedFastFourierTransform optimizedFft;
@@ -58,7 +56,7 @@ public class OptimizedFFTPerformanceTest {
      */
     @Test
     public void testOptimizedPerformanceComparison() throws JWaveException {
-        Assume.assumeTrue("Performance tests disabled", RUN_PERFORMANCE_TESTS);
+        Assume.assumeTrue(PerformanceTestConfig.getSkipMessage(), PerformanceTestConfig.isEnabled());
         
         System.out.println("\n=== Optimized FFT Performance Comparison ===");
         System.out.println("Comparing standard Cooley-Tukey with SIMD-optimized implementation");
@@ -110,7 +108,7 @@ public class OptimizedFFTPerformanceTest {
      */
     @Test
     public void testOptimizedComplexPerformance() throws JWaveException {
-        Assume.assumeTrue("Performance tests disabled", RUN_PERFORMANCE_TESTS);
+        Assume.assumeTrue(PerformanceTestConfig.getSkipMessage(), PerformanceTestConfig.isEnabled());
         
         System.out.println("\nComplex FFT Performance");
         System.out.println("=======================");
@@ -179,7 +177,7 @@ public class OptimizedFFTPerformanceTest {
      */
     @Test
     public void testOptimizationBreakdown() throws JWaveException {
-        Assume.assumeTrue("Performance tests disabled", RUN_PERFORMANCE_TESTS);
+        Assume.assumeTrue(PerformanceTestConfig.getSkipMessage(), PerformanceTestConfig.isEnabled());
         
         System.out.println("\nOptimization Impact Analysis");
         System.out.println("============================");
@@ -224,7 +222,7 @@ public class OptimizedFFTPerformanceTest {
      */
     @Test
     public void testPerformanceScaling() throws JWaveException {
-        Assume.assumeTrue("Performance tests disabled", RUN_PERFORMANCE_TESTS);
+        Assume.assumeTrue(PerformanceTestConfig.getSkipMessage(), PerformanceTestConfig.isEnabled());
         
         System.out.println("\nFFT Performance Scaling Analysis");
         System.out.println("================================");
