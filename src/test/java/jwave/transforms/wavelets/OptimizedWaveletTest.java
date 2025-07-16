@@ -49,8 +49,6 @@ public class OptimizedWaveletTest extends Base {
         };
         
         for (Wavelet wavelet : wavelets) {
-            System.out.println("Testing forward transform with " + wavelet.getName());
-            
             double[] scalingDeCom = wavelet.getScalingDeComposition();
             double[] waveletDeCom = wavelet.getWaveletDeComposition();
             int motherWavelength = wavelet.getMotherWavelength();
@@ -91,8 +89,6 @@ public class OptimizedWaveletTest extends Base {
         };
         
         for (Wavelet wavelet : wavelets) {
-            System.out.println("Testing reverse transform with " + wavelet.getName());
-            
             double[] scalingDeCom = wavelet.getScalingDeComposition();
             double[] waveletDeCom = wavelet.getWaveletDeComposition();
             double[] scalingReCon = wavelet.getScalingReConstruction();

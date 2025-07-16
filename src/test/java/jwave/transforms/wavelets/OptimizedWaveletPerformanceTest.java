@@ -225,4 +225,41 @@ public class OptimizedWaveletPerformanceTest extends Base {
         testWaveletTransformPerformance();
         testCircularConvolutionPerformance();
     }
+    
+    @Test
+    @Ignore("Performance demonstration - run manually to see optimization impact")
+    public void demonstrateModuloOptimization() {
+        System.out.println("\n=== Modulo Optimization Impact ===");
+        System.out.println("This test shows how our optimization avoids expensive modulo operations");
+        System.out.println("when the filter doesn't wrap around the signal boundary.\n");
+        
+        // Test with different signal sizes
+        int[] sizes = {64, 256, 1024, 4096};
+        Wavelet wavelet = new Daubechies4();
+        
+        double[] scalingDeCom = wavelet.getScalingDeComposition();
+        double[] waveletDeCom = wavelet.getWaveletDeComposition();
+        int motherWavelength = wavelet.getMotherWavelength();
+        
+        System.out.println("Wavelet: " + wavelet.getName());
+        System.out.println("Filter length: " + motherWavelength);
+        System.out.println();
+        
+        for (int size : sizes) {
+            // Calculate percentage of operations that avoid modulo
+            // For a signal of length N and filter of length M:
+            // - Number of convolutions: N/2 (for each coefficient)
+            // - Convolutions that don't wrap: max(0, N/2 - M + 1)
+            int numConvolutions = size / 2;
+            int noWrapConvolutions = Math.max(0, numConvolutions - motherWavelength + 1);
+            double noModuloPercentage = (noWrapConvolutions * 100.0) / numConvolutions;
+            
+            System.out.printf("Signal size %4d: %.1f%% of convolution operations avoid modulo\n", 
+                            size, noModuloPercentage);
+        }
+        
+        System.out.println("\nAs signal size increases, the percentage of operations that can");
+        System.out.println("use direct array access (without modulo) approaches 100%.");
+        System.out.println("This leads to significant performance improvements.");
+    }
 }

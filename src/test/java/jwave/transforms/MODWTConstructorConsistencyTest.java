@@ -37,7 +37,6 @@ public class MODWTConstructorConsistencyTest {
 
     @Test
     public void testBasicConstructorsUseStandardImplementations() throws JWaveException {
-        System.out.println("=== Testing Basic Constructor Consistency ===");
         
         Daubechies4 wavelet = new Daubechies4();
         
@@ -64,12 +63,10 @@ public class MODWTConstructorConsistencyTest {
                 result1[i], result2[i], 1e-10);
         }
         
-        System.out.println("✓ Basic constructors use consistent standard implementations");
     }
 
     @Test
     public void testConstructorVariants() throws JWaveException {
-        System.out.println("=== Testing Constructor Variants ===");
         
         Daubechies4 wavelet = new Daubechies4();
         double[] signal = createTestSignal();
@@ -89,12 +86,10 @@ public class MODWTConstructorConsistencyTest {
         
         assertEquals("All results should have same length", result1.length, result2.length);
         
-        System.out.println("✓ Constructor variants work correctly");
     }
 
     @Test
     public void testConvolutionMethodSettings() throws JWaveException {
-        System.out.println("=== Testing Convolution Method Settings ===");
         
         Daubechies4 wavelet = new Daubechies4();
         double[] signal = createTestSignal();
@@ -118,12 +113,10 @@ public class MODWTConstructorConsistencyTest {
         assertNotNull("FFT result should not be null", resultFFT);
         assertEquals("Results should have same length", resultDirect.length, resultFFT.length);
         
-        System.out.println("✓ Convolution method settings work correctly");
     }
 
     @Test
     public void testMaxDecompositionLevel() throws JWaveException {
-        System.out.println("=== Testing Max Decomposition Level ===");
         
         // Test the static method for max decomposition level
         int maxLevel = MODWTTransform.getMaxDecompositionLevel();
@@ -135,7 +128,6 @@ public class MODWTConstructorConsistencyTest {
         // Test that we can precompute filters up to max level
         try {
             modwt.precomputeFilters(maxLevel);
-            System.out.println("✓ Can precompute filters up to max level");
         } catch (Exception e) {
             fail("Should be able to precompute filters up to max level: " + e.getMessage());
         }
@@ -145,7 +137,7 @@ public class MODWTConstructorConsistencyTest {
             modwt.precomputeFilters(maxLevel + 1);
             fail("Should throw exception for level > max");
         } catch (IllegalArgumentException e) {
-            System.out.println("✓ Correctly throws exception for level > max");
+            // Expected - correctly throws exception for level > max
         }
     }
 

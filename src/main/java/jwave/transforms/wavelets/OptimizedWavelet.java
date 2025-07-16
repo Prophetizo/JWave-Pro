@@ -46,6 +46,126 @@ public class OptimizedWavelet {
     private OptimizedWavelet() {}
     
     /**
+     * Performs an unrolled convolution loop for better performance.
+     * This helper method eliminates code duplication between forward transform passes.
+     * 
+     * @param arrTime input time domain signal
+     * @param coefficients filter coefficients (scaling or wavelet)
+     * @param baseIdx base index for circular indexing
+     * @param length length of the signal for modulo operation
+     * @param filterLength length of the filter (motherWavelength)
+     * @return the computed sum
+     */
+    private static double unrolledConvolution(double[] arrTime, double[] coefficients, 
+                                            int baseIdx, int length, int filterLength) {
+        double sum = 0.0;
+        
+        // Check if we can avoid modulo operations entirely
+        // This is true when baseIdx + filterLength <= length
+        if (baseIdx + filterLength <= length) {
+            // Fast path: no wrap-around needed
+            int j = 0;
+            for (; j + OptimizationConstants.UNROLL_FACTOR <= filterLength; j += OptimizationConstants.UNROLL_FACTOR) {
+                // Direct array access without modulo
+                sum += arrTime[baseIdx + j] * coefficients[j]
+                     + arrTime[baseIdx + j + 1] * coefficients[j + 1]
+                     + arrTime[baseIdx + j + 2] * coefficients[j + 2]
+                     + arrTime[baseIdx + j + 3] * coefficients[j + 3];
+            }
+            
+            // Handle remaining elements
+            for (; j < filterLength; j++) {
+                sum += arrTime[baseIdx + j] * coefficients[j];
+            }
+        } else {
+            // Slow path: handle wrap-around with optimized modulo
+            int j = 0;
+            
+            // Process elements before wrap-around
+            int maxBeforeWrap = Math.min(filterLength, length - baseIdx);
+            for (; j + OptimizationConstants.UNROLL_FACTOR <= maxBeforeWrap; j += OptimizationConstants.UNROLL_FACTOR) {
+                // Direct access without modulo for elements before wrap
+                sum += arrTime[baseIdx + j] * coefficients[j]
+                     + arrTime[baseIdx + j + 1] * coefficients[j + 1]
+                     + arrTime[baseIdx + j + 2] * coefficients[j + 2]
+                     + arrTime[baseIdx + j + 3] * coefficients[j + 3];
+            }
+            
+            // Handle remaining elements before wrap
+            for (; j < maxBeforeWrap; j++) {
+                sum += arrTime[baseIdx + j] * coefficients[j];
+            }
+            
+            // Handle wrapped elements (now we know these indices wrap)
+            for (; j < filterLength; j++) {
+                int k = (baseIdx + j) - length; // Equivalent to (baseIdx + j) % length when we know it wraps
+                sum += arrTime[k] * coefficients[j];
+            }
+        }
+        
+        return sum;
+    }
+    
+    /**
+     * Performs an unrolled accumulation loop for reverse transform.
+     * This helper method eliminates code duplication in the reverse transform.
+     * 
+     * @param arrTime output time domain signal (accumulated into)
+     * @param scalingCoeff scaling coefficient
+     * @param waveletCoeff wavelet coefficient
+     * @param scalingReCon scaling reconstruction coefficients
+     * @param waveletReCon wavelet reconstruction coefficients
+     * @param baseIdx base index for circular indexing
+     * @param length length of the signal for modulo operation
+     * @param filterLength length of the filter (motherWavelength)
+     */
+    private static void unrolledAccumulation(double[] arrTime, double scalingCoeff, double waveletCoeff,
+                                           double[] scalingReCon, double[] waveletReCon,
+                                           int baseIdx, int length, int filterLength) {
+        // Check if we can avoid modulo operations entirely
+        if (baseIdx + filterLength <= length) {
+            // Fast path: no wrap-around needed
+            int j = 0;
+            for (; j + OptimizationConstants.UNROLL_FACTOR <= filterLength; j += OptimizationConstants.UNROLL_FACTOR) {
+                // Direct array access without modulo
+                arrTime[baseIdx + j] += scalingCoeff * scalingReCon[j] + waveletCoeff * waveletReCon[j];
+                arrTime[baseIdx + j + 1] += scalingCoeff * scalingReCon[j + 1] + waveletCoeff * waveletReCon[j + 1];
+                arrTime[baseIdx + j + 2] += scalingCoeff * scalingReCon[j + 2] + waveletCoeff * waveletReCon[j + 2];
+                arrTime[baseIdx + j + 3] += scalingCoeff * scalingReCon[j + 3] + waveletCoeff * waveletReCon[j + 3];
+            }
+            
+            // Handle remaining elements
+            for (; j < filterLength; j++) {
+                arrTime[baseIdx + j] += scalingCoeff * scalingReCon[j] + waveletCoeff * waveletReCon[j];
+            }
+        } else {
+            // Slow path: handle wrap-around with optimized modulo
+            int j = 0;
+            
+            // Process elements before wrap-around
+            int maxBeforeWrap = Math.min(filterLength, length - baseIdx);
+            for (; j + OptimizationConstants.UNROLL_FACTOR <= maxBeforeWrap; j += OptimizationConstants.UNROLL_FACTOR) {
+                // Direct access without modulo for elements before wrap
+                arrTime[baseIdx + j] += scalingCoeff * scalingReCon[j] + waveletCoeff * waveletReCon[j];
+                arrTime[baseIdx + j + 1] += scalingCoeff * scalingReCon[j + 1] + waveletCoeff * waveletReCon[j + 1];
+                arrTime[baseIdx + j + 2] += scalingCoeff * scalingReCon[j + 2] + waveletCoeff * waveletReCon[j + 2];
+                arrTime[baseIdx + j + 3] += scalingCoeff * scalingReCon[j + 3] + waveletCoeff * waveletReCon[j + 3];
+            }
+            
+            // Handle remaining elements before wrap
+            for (; j < maxBeforeWrap; j++) {
+                arrTime[baseIdx + j] += scalingCoeff * scalingReCon[j] + waveletCoeff * waveletReCon[j];
+            }
+            
+            // Handle wrapped elements
+            for (; j < filterLength; j++) {
+                int k = (baseIdx + j) - length; // Equivalent to (baseIdx + j) % length when we know it wraps
+                arrTime[k] += scalingCoeff * scalingReCon[j] + waveletCoeff * waveletReCon[j];
+            }
+        }
+    }
+    
+    /**
      * Optimized forward wavelet transform using SIMD-friendly convolution.
      * This method performs the same computation as Wavelet.forward() but with
      * better performance characteristics.
@@ -66,58 +186,14 @@ public class OptimizedWavelet {
         // Process in two passes for better cache locality
         // First pass: compute scaling coefficients (low pass)
         for (int i = 0; i < h; i++) {
-            double sum = 0.0;
             int baseIdx = i << 1; // i * 2
-            
-            // Unrolled inner loop
-            int j = 0;
-            for (; j + OptimizationConstants.UNROLL_FACTOR <= motherWavelength; j += OptimizationConstants.UNROLL_FACTOR) {
-                int k0 = (baseIdx + j) % arrTimeLength;
-                int k1 = (baseIdx + j + 1) % arrTimeLength;
-                int k2 = (baseIdx + j + 2) % arrTimeLength;
-                int k3 = (baseIdx + j + 3) % arrTimeLength;
-                
-                sum += arrTime[k0] * scalingDeCom[j]
-                     + arrTime[k1] * scalingDeCom[j + 1]
-                     + arrTime[k2] * scalingDeCom[j + 2]
-                     + arrTime[k3] * scalingDeCom[j + 3];
-            }
-            
-            // Handle remaining elements
-            for (; j < motherWavelength; j++) {
-                int k = (baseIdx + j) % arrTimeLength;
-                sum += arrTime[k] * scalingDeCom[j];
-            }
-            
-            arrHilb[i] = sum;
+            arrHilb[i] = unrolledConvolution(arrTime, scalingDeCom, baseIdx, arrTimeLength, motherWavelength);
         }
         
         // Second pass: compute wavelet coefficients (high pass)
         for (int i = 0; i < h; i++) {
-            double sum = 0.0;
             int baseIdx = i << 1; // i * 2
-            
-            // Unrolled inner loop
-            int j = 0;
-            for (; j + OptimizationConstants.UNROLL_FACTOR <= motherWavelength; j += OptimizationConstants.UNROLL_FACTOR) {
-                int k0 = (baseIdx + j) % arrTimeLength;
-                int k1 = (baseIdx + j + 1) % arrTimeLength;
-                int k2 = (baseIdx + j + 2) % arrTimeLength;
-                int k3 = (baseIdx + j + 3) % arrTimeLength;
-                
-                sum += arrTime[k0] * waveletDeCom[j]
-                     + arrTime[k1] * waveletDeCom[j + 1]
-                     + arrTime[k2] * waveletDeCom[j + 2]
-                     + arrTime[k3] * waveletDeCom[j + 3];
-            }
-            
-            // Handle remaining elements
-            for (; j < motherWavelength; j++) {
-                int k = (baseIdx + j) % arrTimeLength;
-                sum += arrTime[k] * waveletDeCom[j];
-            }
-            
-            arrHilb[i + h] = sum;
+            arrHilb[i + h] = unrolledConvolution(arrTime, waveletDeCom, baseIdx, arrTimeLength, motherWavelength);
         }
         
         return arrHilb;
@@ -150,26 +226,9 @@ public class OptimizedWavelet {
             // Only process if coefficients are non-zero (sparse optimization)
             if (scalingCoeff != 0.0 || waveletCoeff != 0.0) {
                 int baseIdx = i << 1; // i * 2
-                
-                // Unrolled inner loop
-                int j = 0;
-                for (; j + OptimizationConstants.UNROLL_FACTOR <= motherWavelength; j += OptimizationConstants.UNROLL_FACTOR) {
-                    int k0 = (baseIdx + j) % arrHilbLength;
-                    int k1 = (baseIdx + j + 1) % arrHilbLength;
-                    int k2 = (baseIdx + j + 2) % arrHilbLength;
-                    int k3 = (baseIdx + j + 3) % arrHilbLength;
-                    
-                    arrTime[k0] += scalingCoeff * scalingReCon[j] + waveletCoeff * waveletReCon[j];
-                    arrTime[k1] += scalingCoeff * scalingReCon[j + 1] + waveletCoeff * waveletReCon[j + 1];
-                    arrTime[k2] += scalingCoeff * scalingReCon[j + 2] + waveletCoeff * waveletReCon[j + 2];
-                    arrTime[k3] += scalingCoeff * scalingReCon[j + 3] + waveletCoeff * waveletReCon[j + 3];
-                }
-                
-                // Handle remaining elements
-                for (; j < motherWavelength; j++) {
-                    int k = (baseIdx + j) % arrHilbLength;
-                    arrTime[k] += scalingCoeff * scalingReCon[j] + waveletCoeff * waveletReCon[j];
-                }
+                unrolledAccumulation(arrTime, scalingCoeff, waveletCoeff, 
+                                   scalingReCon, waveletReCon, 
+                                   baseIdx, arrHilbLength, motherWavelength);
             }
         }
         
