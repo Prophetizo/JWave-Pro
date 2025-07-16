@@ -1,7 +1,7 @@
 /**
  * JWave is distributed under the MIT License (MIT); this file is part of.
  *
- * Copyright (c) 2025 Prophetizo Christian (graetz23@gmail.com)
+ * Copyright (c) 2025 Prophetizo
  */
 package jwave.datatypes.natives;
 
