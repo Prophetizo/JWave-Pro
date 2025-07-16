@@ -5,6 +5,18 @@ All notable changes to JWave are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **SIMD-Optimized Operations** (feature/simd branch):
+  - `OptimizedComplex` class with vectorized complex arithmetic (3-8x speedup)
+  - `OptimizedFastFourierTransform` with SIMD-friendly butterfly operations (2-3x speedup)
+  - `OptimizedWavelet` with unrolled convolution loops (2-4x speedup)
+  - Centralized optimization constants in `OptimizationConstants` class
+  - Auto-vectorization friendly algorithms without preview features
+  - Performance demonstration classes showing real-world speedups
+  - Comprehensive unit tests ensuring correctness
+
 ## [2.0.0-SNAPSHOT] - 2025-07-11
 
 ### Added
@@ -112,6 +124,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - WPT: 1.2-1.3x speedup with parallelization
   - Reduced GC pressure across all transforms
   - Optimized inner loops for cache efficiency
+  - SIMD-friendly algorithms for auto-vectorization (added in feature/simd)
 
 ## [1.0.0] - Previous Release
 

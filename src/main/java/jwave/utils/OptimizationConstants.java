@@ -1,0 +1,94 @@
+/**
+ * JWave is distributed under the MIT License (MIT); this file is part of.
+ *
+ * Copyright (c) 2025 Prophetizo
+ * 
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
+ */
+package jwave.utils;
+
+/**
+ * Shared constants for SIMD and optimization parameters across JWave.
+ * 
+ * These constants control various optimization strategies including:
+ * - Loop unrolling factors
+ * - SIMD vector sizes
+ * - Cache-friendly block sizes
+ * 
+ * @author Stephen Romano
+ */
+public final class OptimizationConstants {
+    
+    /**
+     * Loop unroll factor for SIMD-friendly operations.
+     * Value of 4 chosen because:
+     * - Matches common SIMD vector widths (4 doubles in AVX)
+     * - Compatible with AVX-512 (8 doubles), though not fully utilizing its width
+     * - Provides good instruction-level parallelism
+     * - Balances code size vs performance
+     * 
+     * While AVX-512 supports processing 8 doubles at once, using a factor of 4 ensures
+     * compatibility across a wider range of architectures and avoids excessive code size
+     * increases that could arise from higher unroll factors.
+     */
+    public static final int UNROLL_FACTOR = 4;
+    
+    /**
+     * Minimum array size for parallel processing.
+     * Below this threshold, sequential processing is more efficient.
+     */
+    public static final int PARALLEL_THRESHOLD = 8192;
+    
+    /**
+     * Cache line size in bytes (typical for modern CPUs).
+     * Used for data alignment and padding decisions.
+     */
+    public static final int CACHE_LINE_SIZE = 64;
+    
+    /**
+     * Number of doubles that fit in a cache line.
+     */
+    public static final int DOUBLES_PER_CACHE_LINE = CACHE_LINE_SIZE / 8;
+    
+    /**
+     * Preferred alignment for SIMD operations in bytes.
+     * 32 bytes = 256 bits = AVX register width
+     */
+    public static final int SIMD_ALIGNMENT = 32;
+    
+    /**
+     * Minimum size threshold for using optimized FFT implementation.
+     * Value chosen to balance performance and overhead for small arrays.
+     */
+    public static final int FFT_OPTIMIZATION_THRESHOLD = 64;
+    
+    /*
+     * Detailed rationale for FFT_OPTIMIZATION_THRESHOLD:
+     * - 64 elements = 512 bytes (8 bytes per double), fitting in L1 cache
+     * - Below this size, overhead of array conversion and separate real/imag processing exceeds benefits
+     * - SIMD instructions (AVX) process 4 doubles at once; 64 gives 16 SIMD operations per array
+     * - Empirical testing shows diminishing returns below this threshold
+     * - Matches common FFT radix sizes (radix-4 needs 64+ elements for 3+ stages)
+     */
+    
+    // Private constructor to prevent instantiation
+    private OptimizationConstants() {
+        throw new AssertionError("Cannot instantiate OptimizationConstants utility class");
+    }
+}
