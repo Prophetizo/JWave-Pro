@@ -215,7 +215,7 @@ public class OptimizedFFTTest {
             
             // Verify DC and Nyquist components are real
             assertEquals("DC component should be real", 0.0, standardResult[1], DELTA);
-            assertEquals("Nyquist component should be real", 0.0, standardResult[n + 1], DELTA);
+            assertEquals("Nyquist component should be real", 0.0, standardResult[2 * (n / 2) + 1], DELTA);
         }
     }
 }
