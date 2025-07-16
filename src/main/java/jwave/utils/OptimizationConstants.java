@@ -39,8 +39,13 @@ public final class OptimizationConstants {
      * Loop unroll factor for SIMD-friendly operations.
      * Value of 4 chosen because:
      * - Matches common SIMD vector widths (4 doubles in AVX)
+     * - Compatible with AVX-512 (8 doubles), though not fully utilizing its width
      * - Provides good instruction-level parallelism
      * - Balances code size vs performance
+     * 
+     * While AVX-512 supports processing 8 doubles at once, using a factor of 4 ensures
+     * compatibility across a wider range of architectures and avoids excessive code size
+     * increases that could arise from higher unroll factors.
      */
     public static final int UNROLL_FACTOR = 4;
     
