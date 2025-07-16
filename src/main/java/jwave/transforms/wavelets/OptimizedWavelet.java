@@ -51,15 +51,30 @@ public class OptimizedWavelet {
     }
     
     /**
+     * Computes circular index with wrap-around.
+     * When index >= length, it wraps around to the beginning of the array.
+     * 
+     * @param index the index to wrap
+     * @param length the array length
+     * @return wrapped index in range [0, length)
+     */
+    private static int circularIndex(int index, int length) {
+        return (index >= length) ? index - length : index;
+    }
+    
+    /**
      * Performs an unrolled convolution loop for better performance.
      * This helper method eliminates code duplication between forward transform passes.
      * 
-     * @param arrTime input time domain signal
-     * @param coefficients filter coefficients (scaling or wavelet)
-     * @param baseIdx base index for circular indexing
-     * @param length length of the signal for modulo operation
-     * @param filterLength length of the filter (motherWavelength)
-     * @return the computed sum
+     * The convolution computes: sum(arrTime[baseIdx + j] * coefficients[j]) for j = 0 to filterLength-1
+     * with circular wrap-around when indices exceed the signal length.
+     * 
+     * @param arrTime input time domain signal to be convolved
+     * @param coefficients filter coefficients (scaling or wavelet) to convolve with
+     * @param baseIdx starting index in arrTime for the convolution (typically i*2 for wavelet transforms)
+     * @param length total length of the arrTime signal, used for circular wrap-around
+     * @param filterLength number of coefficients in the filter (mother wavelet length)
+     * @return the computed convolution sum
      */
     private static double unrolledConvolution(double[] arrTime, double[] coefficients, 
                                             int baseIdx, int length, int filterLength) {
@@ -103,7 +118,7 @@ public class OptimizedWavelet {
             
             // Handle wrapped elements (now we know these indices wrap)
             for (; j < filterLength; j++) {
-                int k = (baseIdx + j >= length) ? baseIdx + j - length : baseIdx + j; // Optimized wrap-around handling
+                int k = circularIndex(baseIdx + j, length);
                 sum += arrTime[k] * coefficients[j];
             }
         }
@@ -115,14 +130,17 @@ public class OptimizedWavelet {
      * Performs an unrolled accumulation loop for reverse transform.
      * This helper method eliminates code duplication in the reverse transform.
      * 
-     * @param arrTime output time domain signal (accumulated into)
-     * @param scalingCoeff scaling coefficient
-     * @param waveletCoeff wavelet coefficient
-     * @param scalingReCon scaling reconstruction coefficients
-     * @param waveletReCon wavelet reconstruction coefficients
-     * @param baseIdx base index for circular indexing
-     * @param length length of the signal for modulo operation
-     * @param filterLength length of the filter (motherWavelength)
+     * Accumulates: arrTime[baseIdx + j] += scalingCoeff * scalingReCon[j] + waveletCoeff * waveletReCon[j]
+     * for j = 0 to filterLength-1, with circular wrap-around when indices exceed the signal length.
+     * 
+     * @param arrTime output time domain signal to accumulate into (modified in-place)
+     * @param scalingCoeff single scaling coefficient from the transformed signal
+     * @param waveletCoeff single wavelet coefficient from the transformed signal
+     * @param scalingReCon scaling reconstruction filter coefficients
+     * @param waveletReCon wavelet reconstruction filter coefficients
+     * @param baseIdx starting index in arrTime for accumulation (typically i*2 for wavelet transforms)
+     * @param length total length of the arrTime signal, used for circular wrap-around
+     * @param filterLength number of coefficients in each reconstruction filter (mother wavelet length)
      */
     private static void unrolledAccumulation(double[] arrTime, double scalingCoeff, double waveletCoeff,
                                            double[] scalingReCon, double[] waveletReCon,
