@@ -45,6 +45,10 @@ public class OptimizedFastFourierTransform extends FastFourierTransform {
     // Cache line size (typically 64 bytes = 8 doubles)
     private static final int CACHE_LINE_DOUBLES = OptimizationConstants.DOUBLES_PER_CACHE_LINE;
     
+    // Minimum size threshold for using optimized implementation
+    // Below this size, the overhead of optimization outweighs the benefits
+    private static final int OPTIMIZATION_THRESHOLD = 64;
+    
     /**
      * Constructor
      */
@@ -58,7 +62,7 @@ public class OptimizedFastFourierTransform extends FastFourierTransform {
         int n = x.length;
         
         // Use parent implementation for small or non-power-of-2 sizes
-        if (n < 64 || !MathUtils.isPowerOfTwo(n)) {
+        if (n < OPTIMIZATION_THRESHOLD || !MathUtils.isPowerOfTwo(n)) {
             return super.forward(x);
         }
         
@@ -74,7 +78,7 @@ public class OptimizedFastFourierTransform extends FastFourierTransform {
         int n = x.length;
         
         // Use parent implementation for small or non-power-of-2 sizes
-        if (n < 64 || !MathUtils.isPowerOfTwo(n)) {
+        if (n < OPTIMIZATION_THRESHOLD || !MathUtils.isPowerOfTwo(n)) {
             return super.reverse(x);
         }
         
