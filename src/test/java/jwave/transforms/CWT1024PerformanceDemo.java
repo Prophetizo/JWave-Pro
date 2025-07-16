@@ -28,6 +28,7 @@ import jwave.datatypes.natives.OptimizedComplex;
 import jwave.transforms.wavelets.continuous.MorletWavelet;
 import jwave.exceptions.JWaveException;
 import org.junit.Ignore;
+import java.util.Random;
 
 /**
  * Demonstration of CWT performance improvements with SIMD optimizations for 1024 samples.
@@ -42,6 +43,8 @@ public class CWT1024PerformanceDemo {
     
     private static final int SIGNAL_LENGTH = 1024;
     private static final double SAMPLING_RATE = 1000.0; // Hz
+    private static final long RANDOM_SEED = 42L; // Fixed seed for reproducible demos
+    private static final Random random = new Random(RANDOM_SEED);
     
     public static void main(String[] args) throws JWaveException {
         System.out.println("CWT Performance Analysis - 1024 Samples with SIMD Optimizations");
@@ -290,7 +293,7 @@ public class CWT1024PerformanceDemo {
             signal[i] = Math.sin(2 * Math.PI * 50 * t)      // 50 Hz
                       + 0.5 * Math.sin(2 * Math.PI * 120 * t)  // 120 Hz
                       + 0.3 * Math.sin(2 * Math.PI * 200 * t)  // 200 Hz
-                      + 0.1 * Math.random();                    // Some noise
+                      + 0.1 * random.nextDouble();              // Some noise
         }
         return signal;
     }

@@ -26,6 +26,7 @@ package jwave.datatypes.natives;
 import jwave.Base;
 import org.junit.Ignore;
 import org.junit.Test;
+import java.util.Random;
 
 /**
  * Performance tests for OptimizedComplex vs standard Complex operations.
@@ -37,6 +38,8 @@ public class OptimizedComplexPerformanceTest extends Base {
     private static final int WARMUP_ITERATIONS = 100;
     private static final int TEST_ITERATIONS = 1000;
     private static final int[] SIZES = { 256, 512, 1024, 2048, 4096 };
+    private static final long RANDOM_SEED = 42L; // Fixed seed for reproducible tests
+    private final Random random = new Random(RANDOM_SEED);
     
     @Test
     @Ignore("Performance test - run manually")
@@ -57,10 +60,10 @@ public class OptimizedComplexPerformanceTest extends Base {
             
             // Initialize with random values
             for (int i = 0; i < size; i++) {
-                real1[i] = Math.random();
-                imag1[i] = Math.random();
-                real2[i] = Math.random();
-                imag2[i] = Math.random();
+                real1[i] = random.nextDouble();
+                imag1[i] = random.nextDouble();
+                real2[i] = random.nextDouble();
+                imag2[i] = random.nextDouble();
                 array1[i] = new Complex(real1[i], imag1[i]);
                 array2[i] = new Complex(real2[i], imag2[i]);
             }
@@ -125,10 +128,10 @@ public class OptimizedComplexPerformanceTest extends Base {
             
             // Initialize with random values
             for (int i = 0; i < size; i++) {
-                real1[i] = Math.random();
-                imag1[i] = Math.random();
-                real2[i] = Math.random();
-                imag2[i] = Math.random();
+                real1[i] = random.nextDouble();
+                imag1[i] = random.nextDouble();
+                real2[i] = random.nextDouble();
+                imag2[i] = random.nextDouble();
                 array1[i] = new Complex(real1[i], imag1[i]);
                 array2[i] = new Complex(real2[i], imag2[i]);
             }
@@ -191,10 +194,10 @@ public class OptimizedComplexPerformanceTest extends Base {
             
             // Initialize with random values
             for (int i = 0; i < size; i++) {
-                real1[i] = Math.random();
-                imag1[i] = Math.random();
-                real2[i] = Math.random();
-                imag2[i] = Math.random();
+                real1[i] = random.nextDouble();
+                imag1[i] = random.nextDouble();
+                real2[i] = random.nextDouble();
+                imag2[i] = random.nextDouble();
                 array1[i] = new Complex(real1[i], imag1[i]);
                 array2[i] = new Complex(real2[i], imag2[i]);
             }

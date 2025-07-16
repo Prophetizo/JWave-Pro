@@ -29,6 +29,7 @@ import jwave.transforms.wavelets.daubechies.Daubechies4;
 import jwave.transforms.wavelets.daubechies.Daubechies8;
 import org.junit.Ignore;
 import org.junit.Test;
+import java.util.Random;
 
 /**
  * Performance tests for OptimizedWavelet vs standard Wavelet operations.
@@ -40,6 +41,8 @@ public class OptimizedWaveletPerformanceTest extends Base {
     private static final int WARMUP_ITERATIONS = 100;
     private static final int TEST_ITERATIONS = 1000;
     private static final int[] SIZES = { 256, 512, 1024, 2048, 4096 };
+    private static final long RANDOM_SEED = 42L; // Fixed seed for reproducible tests
+    private final Random random = new Random(RANDOM_SEED);
     
     @Test
     @Ignore("Performance test - run manually")
@@ -164,7 +167,7 @@ public class OptimizedWaveletPerformanceTest extends Base {
                 // Prepare test data
                 double[] signal = new double[size];
                 for (int i = 0; i < size; i++) {
-                    signal[i] = Math.random();
+                    signal[i] = random.nextDouble();
                 }
                 
                 // Warmup

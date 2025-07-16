@@ -164,7 +164,7 @@ public class OptimizedWavelet {
             
             // Handle wrapped elements
             for (; j < filterLength; j++) {
-                int k = (baseIdx + j) - length; // Equivalent to (baseIdx + j) % length when we know it wraps
+                int k = (baseIdx + j) % length; // Use modulo to ensure correct wrapping
                 arrTime[k] += scalingCoeff * scalingReCon[j] + waveletCoeff * waveletReCon[j];
             }
         }
