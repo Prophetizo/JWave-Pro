@@ -103,7 +103,7 @@ public class OptimizedWavelet {
             
             // Handle wrapped elements (now we know these indices wrap)
             for (; j < filterLength; j++) {
-                int k = (baseIdx + j) % length; // Explicit modulo operation to handle wrap-around
+                int k = (baseIdx + j >= length) ? baseIdx + j - length : baseIdx + j; // Optimized wrap-around handling
                 sum += arrTime[k] * coefficients[j];
             }
         }
