@@ -1,169 +1,171 @@
 /**
  * JWave Enhanced Edition
- *
+ * <p>
  * Copyright 2025 Prophetizo and original authors
- *
+ * <p>
  * Licensed under the MIT License
  */
 package jwave.transforms.streaming;
 
-import jwave.transforms.wavelets.haar.Haar1;
 import jwave.transforms.wavelets.daubechies.Daubechies4;
+import jwave.transforms.wavelets.haar.Haar1;
 import jwave.transforms.wavelets.symlets.Symlet8;
 import org.junit.Test;
-import static org.junit.Assert.*;
+
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static org.junit.Assert.*;
+
 /**
  * Unit tests for StreamingTransformFactory.
- * 
+ *
  * @author Prophetizo
  * @date 2025-07-12
  */
 public class StreamingTransformFactoryTest {
-    
+
     @Test(expected = IllegalArgumentException.class)
     public void testCreateWithNullType() {
         StreamingTransformConfig config = StreamingTransformConfig.builder().build();
         StreamingTransformFactory.create(null, new Haar1(), config);
     }
-    
+
     @Test(expected = IllegalArgumentException.class)
     public void testCreateWithNullConfig() {
         StreamingTransformFactory.create(
-            StreamingTransformFactory.TransformType.FWT, 
-            new Haar1(), 
-            null
+                StreamingTransformFactory.TransformType.FWT,
+                new Haar1(),
+                null
         );
     }
-    
+
     @Test(expected = IllegalArgumentException.class)
     public void testCreateFWTWithoutWavelet() {
         StreamingTransformConfig config = StreamingTransformConfig.builder().build();
         StreamingTransformFactory.create(
-            StreamingTransformFactory.TransformType.FWT, 
-            null, 
-            config
+                StreamingTransformFactory.TransformType.FWT,
+                null,
+                config
         );
     }
-    
+
     @Test(expected = IllegalArgumentException.class)
     public void testCreateWPTWithoutWavelet() {
         StreamingTransformConfig config = StreamingTransformConfig.builder().build();
         StreamingTransformFactory.create(
-            StreamingTransformFactory.TransformType.WPT, 
-            null, 
-            config
+                StreamingTransformFactory.TransformType.WPT,
+                null,
+                config
         );
     }
-    
+
     @Test(expected = IllegalArgumentException.class)
     public void testCreateMODWTWithoutWavelet() {
         StreamingTransformConfig config = StreamingTransformConfig.builder().build();
         StreamingTransformFactory.create(
-            StreamingTransformFactory.TransformType.MODWT, 
-            null, 
-            config
+                StreamingTransformFactory.TransformType.MODWT,
+                null,
+                config
         );
     }
-    
+
     @Test(expected = IllegalArgumentException.class)
     public void testCreateCWTWithoutWavelet() {
         StreamingTransformConfig config = StreamingTransformConfig.builder().build();
         StreamingTransformFactory.create(
-            StreamingTransformFactory.TransformType.CWT, 
-            null, 
-            config
+                StreamingTransformFactory.TransformType.CWT,
+                null,
+                config
         );
     }
-    
+
     @Test(expected = UnsupportedOperationException.class)
     public void testCreateFWTNotImplemented() {
         StreamingTransformConfig config = StreamingTransformConfig.builder().build();
         StreamingTransformFactory.create(
-            StreamingTransformFactory.TransformType.FWT, 
-            new Haar1(), 
-            config
+                StreamingTransformFactory.TransformType.FWT,
+                new Haar1(),
+                config
         );
     }
-    
+
     @Test(expected = UnsupportedOperationException.class)
     public void testCreateWPTNotImplemented() {
         StreamingTransformConfig config = StreamingTransformConfig.builder().build();
         StreamingTransformFactory.create(
-            StreamingTransformFactory.TransformType.WPT, 
-            new Daubechies4(), 
-            config
+                StreamingTransformFactory.TransformType.WPT,
+                new Daubechies4(),
+                config
         );
     }
-    
+
     @Test(expected = UnsupportedOperationException.class)
     public void testCreateMODWTNotImplemented() {
         StreamingTransformConfig config = StreamingTransformConfig.builder().build();
         StreamingTransformFactory.create(
-            StreamingTransformFactory.TransformType.MODWT, 
-            new Symlet8(), 
-            config
+                StreamingTransformFactory.TransformType.MODWT,
+                new Symlet8(),
+                config
         );
     }
-    
+
     @Test(expected = UnsupportedOperationException.class)
     public void testCreateCWTNotImplemented() {
         StreamingTransformConfig config = StreamingTransformConfig.builder().build();
         StreamingTransformFactory.create(
-            StreamingTransformFactory.TransformType.CWT, 
-            new Haar1(), 
-            config
+                StreamingTransformFactory.TransformType.CWT,
+                new Haar1(),
+                config
         );
     }
-    
+
     @Test(expected = UnsupportedOperationException.class)
     public void testCreateFFTNotImplemented() {
         StreamingTransformConfig config = StreamingTransformConfig.builder().build();
         StreamingTransformFactory.create(
-            StreamingTransformFactory.TransformType.FFT, 
-            null, // FFT doesn't require wavelet
-            config
+                StreamingTransformFactory.TransformType.FFT,
+                null, // FFT doesn't require wavelet
+                config
         );
     }
-    
+
     @Test(expected = UnsupportedOperationException.class)
     public void testCreateDFTNotImplemented() {
         StreamingTransformConfig config = StreamingTransformConfig.builder().build();
         StreamingTransformFactory.create(
-            StreamingTransformFactory.TransformType.DFT, 
-            null, // DFT doesn't require wavelet
-            config
+                StreamingTransformFactory.TransformType.DFT,
+                null, // DFT doesn't require wavelet
+                config
         );
     }
-    
+
     @Test
     public void testCreateWithBufferSize() {
         // Test the convenience method
         try {
             StreamingTransformFactory.create(
-                StreamingTransformFactory.TransformType.FWT,
-                new Haar1(),
-                1024
+                    StreamingTransformFactory.TransformType.FWT,
+                    new Haar1(),
+                    1024
             );
             fail("Should throw UnsupportedOperationException");
         } catch (UnsupportedOperationException e) {
             assertTrue(e.getMessage().contains("Streaming FWT not yet implemented"));
         }
     }
-    
+
     @Test
     public void testFFTDoesNotRequireWavelet() {
         // FFT/DFT should not throw for null wavelet, only for not implemented
         StreamingTransformConfig config = StreamingTransformConfig.builder().build();
         try {
             StreamingTransformFactory.create(
-                StreamingTransformFactory.TransformType.FFT, 
-                null, 
-                config
+                    StreamingTransformFactory.TransformType.FFT,
+                    null,
+                    config
             );
             fail("Should throw UnsupportedOperationException");
         } catch (UnsupportedOperationException e) {
@@ -172,15 +174,15 @@ public class StreamingTransformFactoryTest {
             fail("FFT should not require a wavelet");
         }
     }
-    
+
     @Test
     public void testDFTDoesNotRequireWavelet() {
         StreamingTransformConfig config = StreamingTransformConfig.builder().build();
         try {
             StreamingTransformFactory.create(
-                StreamingTransformFactory.TransformType.DFT, 
-                null, 
-                config
+                    StreamingTransformFactory.TransformType.DFT,
+                    null,
+                    config
             );
             fail("Should throw UnsupportedOperationException");
         } catch (UnsupportedOperationException e) {
@@ -189,51 +191,51 @@ public class StreamingTransformFactoryTest {
             fail("DFT should not require a wavelet");
         }
     }
-    
+
     @Test
     public void testGetRecommendedBufferSize() {
         // Test FWT/WPT recommendations
         assertEquals(256, StreamingTransformFactory.getRecommendedBufferSize(
-            StreamingTransformFactory.TransformType.FWT, 5));
+                StreamingTransformFactory.TransformType.FWT, 5));
         assertEquals(512, StreamingTransformFactory.getRecommendedBufferSize(
-            StreamingTransformFactory.TransformType.FWT, 6));
+                StreamingTransformFactory.TransformType.FWT, 6));
         assertEquals(2048, StreamingTransformFactory.getRecommendedBufferSize(
-            StreamingTransformFactory.TransformType.WPT, 8));
-        
+                StreamingTransformFactory.TransformType.WPT, 8));
+
         // Test MODWT recommendations
         assertEquals(512, StreamingTransformFactory.getRecommendedBufferSize(
-            StreamingTransformFactory.TransformType.MODWT, 3));
+                StreamingTransformFactory.TransformType.MODWT, 3));
         assertEquals(640, StreamingTransformFactory.getRecommendedBufferSize(
-            StreamingTransformFactory.TransformType.MODWT, 5));
-        
+                StreamingTransformFactory.TransformType.MODWT, 5));
+
         // Test CWT recommendations
         assertEquals(256, StreamingTransformFactory.getRecommendedBufferSize(
-            StreamingTransformFactory.TransformType.CWT, 3));
+                StreamingTransformFactory.TransformType.CWT, 3));
         assertEquals(320, StreamingTransformFactory.getRecommendedBufferSize(
-            StreamingTransformFactory.TransformType.CWT, 5));
-        
+                StreamingTransformFactory.TransformType.CWT, 5));
+
         // Test FFT/DFT recommendations
         assertEquals(1024, StreamingTransformFactory.getRecommendedBufferSize(
-            StreamingTransformFactory.TransformType.FFT, 5));
+                StreamingTransformFactory.TransformType.FFT, 5));
         assertEquals(2048, StreamingTransformFactory.getRecommendedBufferSize(
-            StreamingTransformFactory.TransformType.FFT, 11));
+                StreamingTransformFactory.TransformType.FFT, 11));
         assertEquals(1024, StreamingTransformFactory.getRecommendedBufferSize(
-            StreamingTransformFactory.TransformType.DFT, 10));
+                StreamingTransformFactory.TransformType.DFT, 10));
     }
-    
+
     @Test
     public void testTransformTypeEnum() {
         // Ensure all enum values are handled
-        StreamingTransformFactory.TransformType[] types = 
-            StreamingTransformFactory.TransformType.values();
+        StreamingTransformFactory.TransformType[] types =
+                StreamingTransformFactory.TransformType.values();
         assertEquals(6, types.length);
-        
+
         // Verify enum names
         Set<String> actualNames = Arrays.stream(types)
-            .map(Enum::name)
-            .collect(Collectors.toSet());
+                .map(Enum::name)
+                .collect(Collectors.toSet());
         Set<String> expectedNames = new HashSet<>(Arrays.asList(
-            "FWT", "WPT", "MODWT", "CWT", "FFT", "DFT"
+                "FWT", "WPT", "MODWT", "CWT", "FFT", "DFT"
         ));
         assertEquals(expectedNames, actualNames);
     }

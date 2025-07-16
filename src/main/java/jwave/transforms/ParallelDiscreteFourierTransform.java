@@ -10,7 +10,7 @@ import java.util.concurrent.RecursiveAction;
  * Parallel implementation of the Discrete Fourier Transform using ForkJoinPool.
  * This implementation divides the computation across multiple threads for improved
  * performance on multi-core systems.
- * 
+ *
  * @author Stephen Romano
  */
 public class ParallelDiscreteFourierTransform extends BasicTransform {
@@ -36,18 +36,14 @@ public class ParallelDiscreteFourierTransform extends BasicTransform {
     @Override
     public double[] forward(double[] arrTime, int arrTimeLength) {
         double[] arrFreq = new double[arrTimeLength];
-        
+
         if (arrTimeLength <= SEQUENTIAL_THRESHOLD) {
             // Fall back to sequential for small arrays
             return sequentialForward(arrTime, arrTimeLength);
         }
-        
-        try {
-            pool.invoke(new ParallelDFTTask(arrTime, arrFreq, 0, arrTimeLength, true));
-        } finally {
-            // Don't shut down the pool, it can be reused
-        }
-        
+
+        pool.invoke(new ParallelDFTTask(arrTime, arrFreq, 0, arrTimeLength, true));
+
         return arrFreq;
     }
 
@@ -59,59 +55,47 @@ public class ParallelDiscreteFourierTransform extends BasicTransform {
     @Override
     public double[] reverse(double[] arrFreq, int arrFreqLength) {
         double[] arrTime = new double[arrFreqLength];
-        
+
         if (arrFreqLength <= SEQUENTIAL_THRESHOLD) {
             // Fall back to sequential for small arrays
             return sequentialReverse(arrFreq, arrFreqLength);
         }
-        
-        try {
-            pool.invoke(new ParallelDFTTask(arrFreq, arrTime, 0, arrFreqLength, false));
-        } finally {
-            // Don't shut down the pool, it can be reused
-        }
-        
+
+        pool.invoke(new ParallelDFTTask(arrFreq, arrTime, 0, arrFreqLength, false));
+
         return arrTime;
     }
 
     public Complex[] forward(Complex[] arrTime) {
         int n = arrTime.length;
         Complex[] arrFreq = new Complex[n];
-        
+
         if (n <= SEQUENTIAL_THRESHOLD) {
             return sequentialForwardComplex(arrTime);
         }
-        
-        try {
-            pool.invoke(new ParallelComplexDFTTask(arrTime, arrFreq, 0, n, true));
-        } finally {
-            // Don't shut down the pool, it can be reused
-        }
-        
+
+        pool.invoke(new ParallelComplexDFTTask(arrTime, arrFreq, 0, n, true));
+
         return arrFreq;
     }
 
     public Complex[] reverse(Complex[] arrFreq) {
         int n = arrFreq.length;
         Complex[] arrTime = new Complex[n];
-        
+
         if (n <= SEQUENTIAL_THRESHOLD) {
             return sequentialReverseComplex(arrFreq);
         }
-        
-        try {
-            pool.invoke(new ParallelComplexDFTTask(arrFreq, arrTime, 0, n, false));
-        } finally {
-            // Don't shut down the pool, it can be reused
-        }
-        
+
+        pool.invoke(new ParallelComplexDFTTask(arrFreq, arrTime, 0, n, false));
+
         return arrTime;
     }
 
     private double[] sequentialForward(double[] arrTime, int n) {
         double[] arrFreq = new double[n];
         int k = n >> 1;
-        
+
         for (int i = 0; i < n; i += 2) {
             for (int j = 0; j < n; j += 2) {
                 int j2 = j >> 1;
@@ -120,7 +104,7 @@ public class ParallelDiscreteFourierTransform extends BasicTransform {
                 double sin = Math.sin(arg);
                 arrFreq[i] += arrTime[j] * cos - arrTime[j + 1] * sin;
                 arrFreq[i + 1] += arrTime[j] * sin + arrTime[j + 1] * cos;
-                
+
                 if (j2 > 0 && j2 < k) {
                     arg = -2.0 * Math.PI * i * (n - j) / n;
                     cos = Math.cos(arg);
@@ -130,14 +114,14 @@ public class ParallelDiscreteFourierTransform extends BasicTransform {
                 }
             }
         }
-        
+
         return arrFreq;
     }
 
     private double[] sequentialReverse(double[] arrFreq, int n) {
         double[] arrTime = new double[n];
         int k = n >> 1;
-        
+
         for (int i = 0; i < n; i += 2) {
             for (int j = 0; j < n; j += 2) {
                 int j2 = j >> 1;
@@ -146,7 +130,7 @@ public class ParallelDiscreteFourierTransform extends BasicTransform {
                 double sin = Math.sin(arg);
                 arrTime[i] += arrFreq[j] * cos - arrFreq[j + 1] * sin;
                 arrTime[i + 1] += arrFreq[j] * sin + arrFreq[j + 1] * cos;
-                
+
                 if (j2 > 0 && j2 < k) {
                     arg = 2.0 * Math.PI * i * (n - j) / n;
                     cos = Math.cos(arg);
@@ -156,19 +140,19 @@ public class ParallelDiscreteFourierTransform extends BasicTransform {
                 }
             }
         }
-        
+
         // Standard normalization convention (Forward: 1, Inverse: 1/N)
         for (int i = 0; i < n; i++) {
             arrTime[i] /= k;
         }
-        
+
         return arrTime;
     }
 
     private Complex[] sequentialForwardComplex(Complex[] arrTime) {
         int n = arrTime.length;
         Complex[] arrFreq = new Complex[n];
-        
+
         for (int k = 0; k < n; k++) {
             arrFreq[k] = new Complex();
             for (int t = 0; t < n; t++) {
@@ -177,14 +161,14 @@ public class ParallelDiscreteFourierTransform extends BasicTransform {
                 arrFreq[k] = arrFreq[k].add(arrTime[t].mul(w));
             }
         }
-        
+
         return arrFreq;
     }
 
     private Complex[] sequentialReverseComplex(Complex[] arrFreq) {
         int n = arrFreq.length;
         Complex[] arrTime = new Complex[n];
-        
+
         for (int k = 0; k < n; k++) {
             arrTime[k] = new Complex();
             for (int t = 0; t < n; t++) {
@@ -195,8 +179,12 @@ public class ParallelDiscreteFourierTransform extends BasicTransform {
             // Standard normalization convention (Forward: 1, Inverse: 1/N)
             arrTime[k] = arrTime[k].mul(1.0 / n);
         }
-        
+
         return arrTime;
+    }
+
+    public void shutdown() {
+        pool.shutdown();
     }
 
     private class ParallelDFTTask extends RecursiveAction {
@@ -217,17 +205,17 @@ public class ParallelDiscreteFourierTransform extends BasicTransform {
         @Override
         protected void compute() {
             int length = end - start;
-            
+
             if (length <= SEQUENTIAL_THRESHOLD) {
                 computeDirectly();
                 return;
             }
-            
+
             int mid = start + length / 2;
-            
+
             ParallelDFTTask leftTask = new ParallelDFTTask(input, output, start, mid, isForward);
             ParallelDFTTask rightTask = new ParallelDFTTask(input, output, mid, end, isForward);
-            
+
             leftTask.fork();
             rightTask.compute();
             leftTask.join();
@@ -237,7 +225,7 @@ public class ParallelDiscreteFourierTransform extends BasicTransform {
             int n = input.length;
             int k = n >> 1;
             double sign = isForward ? -2.0 : 2.0;
-            
+
             for (int i = start; i < end; i += 2) {
                 for (int j = 0; j < n; j += 2) {
                     int j2 = j >> 1;
@@ -246,7 +234,7 @@ public class ParallelDiscreteFourierTransform extends BasicTransform {
                     double sin = Math.sin(arg);
                     output[i] += input[j] * cos - input[j + 1] * sin;
                     output[i + 1] += input[j] * sin + input[j + 1] * cos;
-                    
+
                     if (j2 > 0 && j2 < k) {
                         arg = sign * Math.PI * i * (n - j) / n;
                         cos = Math.cos(arg);
@@ -255,7 +243,7 @@ public class ParallelDiscreteFourierTransform extends BasicTransform {
                         output[i + 1] += input[n - j] * sin + input[n - j + 1] * cos;
                     }
                 }
-                
+
                 // Standard normalization convention (Forward: 1, Inverse: 1/N)
                 if (!isForward) {
                     output[i] /= k;
@@ -283,17 +271,17 @@ public class ParallelDiscreteFourierTransform extends BasicTransform {
         @Override
         protected void compute() {
             int length = end - start;
-            
+
             if (length <= SEQUENTIAL_THRESHOLD / 2) {
                 computeDirectly();
                 return;
             }
-            
+
             int mid = start + length / 2;
-            
+
             ParallelComplexDFTTask leftTask = new ParallelComplexDFTTask(input, output, start, mid, isForward);
             ParallelComplexDFTTask rightTask = new ParallelComplexDFTTask(input, output, mid, end, isForward);
-            
+
             leftTask.fork();
             rightTask.compute();
             leftTask.join();
@@ -302,7 +290,7 @@ public class ParallelDiscreteFourierTransform extends BasicTransform {
         private void computeDirectly() {
             int n = input.length;
             double sign = isForward ? -2.0 : 2.0;
-            
+
             for (int k = start; k < end; k++) {
                 output[k] = new Complex();
                 for (int t = 0; t < n; t++) {
@@ -310,16 +298,12 @@ public class ParallelDiscreteFourierTransform extends BasicTransform {
                     Complex w = new Complex(Math.cos(arg), Math.sin(arg));
                     output[k] = output[k].add(input[t].mul(w));
                 }
-                
+
                 // Standard normalization convention (Forward: 1, Inverse: 1/N)
                 if (!isForward) {
                     output[k] = output[k].mul(1.0 / n);
                 }
             }
         }
-    }
-
-    public void shutdown() {
-        pool.shutdown();
     }
 }

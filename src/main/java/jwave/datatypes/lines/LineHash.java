@@ -1,18 +1,18 @@
 /**
  * JWave is distributed under the MIT License (MIT); this file is part of.
- *
+ * <p>
  * Copyright (c) 2008-2024 Christian (graetz23@gmail.com)
- * 
+ * <p>
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
  * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
  * copies of the Software, and to permit persons to whom the Software is
  * furnished to do so, subject to the following conditions:
- *
+ * <p>
  * The above copyright notice and this permission notice shall be included in
  * all copies or substantial portions of the Software.
- *
+ * <p>
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -23,195 +23,199 @@
  */
 package jwave.datatypes.lines;
 
-import java.util.HashMap;
-
 import jwave.exceptions.JWaveException;
 import jwave.exceptions.JWaveFailureNotFound;
 
+import java.util.HashMap;
+
 /**
  * Uses HashMap generic for sparse data representations.
- * 
- * @author Christian (graetz23@gmail.com)
+ *
+ *
  * @date 16.05.2015 16:30:00
  */
 public class LineHash extends Line {
 
-  /**
-   * Simple hash mapping for sparse data.
-   * 
-   * @author Christian (graetz23@gmail.com)
-   * @date 16.05.2015 16:31:41
-   */
-  HashMap< Integer, Double > _hashMap;
+    /**
+     * Simple hash mapping for sparse data.
+     *
+     *
+     * @date 16.05.2015 16:31:41
+     */
+    HashMap<Integer, Double> _hashMap;
 
-  /**
-   * Pass nothing, use this a a place holder.
-   * 
-   * @author Christian (graetz23@gmail.com)
-   * @date 18.05.2015 20:41:15
-   */
-  public LineHash( ) {
-    super( );
-  } // LineHash
+    /**
+     * Pass nothing, use this a a place holder.
+     *
+     *
+     * @date 18.05.2015 20:41:15
+     */
+    public LineHash() {
+        super();
+    } // LineHash
 
-  /**
-   * Copy constructor that takes over - if available - the values of another
-   * type of Line object.
-   * 
-   * @author Christian (graetz23@gmail.com)
-   * @date 20.05.2015 07:28:18
-   * @param line
-   *          an object of type Line
-   */
-  public LineHash( Line line ) {
+    /**
+     * Copy constructor that takes over - if available - the values of another
+     * type of Line object.
+     *
+     *
+     * @date 20.05.2015 07:28:18
+     * @param line
+     *          an object of type Line
+     */
+    public LineHash(Line line) {
 
-    super( line ); // takes the number of rows and the off set value
+        super(line); // takes the number of rows and the off set value
 
-    try {
+        try {
 
-      alloc( );
+            alloc();
 
-      for( int i = 0; i < line._noOfRows; i++ )
-        set( i, line.get( i ) );
+            for (int i = 0; i < line._noOfRows; i++)
+                set(i, line.get(i));
 
-    } catch( JWaveException e ) {
-      e.printStackTrace( );
-    } // try
+        } catch (JWaveException e) {
+            e.printStackTrace();
+        } // try
 
-    // TODO improve constructor memory passing by (instance of)
+        // TODO improve constructor memory passing by (instance of)
 
-  } // LineHash
+    } // LineHash
 
-  /**
-   * Pass the number of rows - global line?!
-   * 
-   * @author Christian (graetz23@gmail.com)
-   * @date 16.05.2015 16:30:00
-   * @param noOfRows
-   */
-  public LineHash( int noOfRows ) {
-    super( noOfRows );
-  } // LineHash
+    /**
+     * Pass the number of rows - global line?!
+     *
+     *
+     * @date 16.05.2015 16:30:00
+     * @param noOfRows
+     */
+    public LineHash(int noOfRows) {
+        super(noOfRows);
+    } // LineHash
 
-  /**
-   * Pass an of set to the line and a number of rows.
-   * 
-   * @author Christian (graetz23@gmail.com)
-   * @date 18.05.2015 20:40:38
-   * @param offSetRow
-   * @param noOfRows
-   */
-  public LineHash( int offSetRow, int noOfRows ) {
-    super( offSetRow, noOfRows );
-  } // LineHash
+    /**
+     * Pass an of set to the line and a number of rows.
+     *
+     *
+     * @date 18.05.2015 20:40:38
+     * @param offSetRow
+     * @param noOfRows
+     */
+    public LineHash(int offSetRow, int noOfRows) {
+        super(offSetRow, noOfRows);
+    } // LineHash
 
-  /*
-   * Get a full copy of this Line object!
-   * @author Christian (graetz23@gmail.com)
-   * @date 18.05.2015 21:02:37 (non-Javadoc)
-   * @see jwave.datatypes.lines.Line#copy()
-   */
-  @Override public Line copy( ) {
+    /*
+     * Get a full copy of this Line object!
+     *
+     * @date 18.05.2015 21:02:37 (non-Javadoc)
+     * @see jwave.datatypes.lines.Line#copy()
+     */
+    @Override
+    public Line copy() {
 
-    int offSetRow = getOffSetRow( );
-    int noOfRows = getNoOfRows( );
+        int offSetRow = getOffSetRow();
+        int noOfRows = getNoOfRows();
 
-    Line line = new LineHash( offSetRow, noOfRows );
+        Line line = new LineHash(offSetRow, noOfRows);
 
-    try {
-      if( isAllocated( ) ) {
-        line.alloc( );
-        for( int i = 0; i < noOfRows; i++ ) {
-          try {
-            line.set( i, get( i ) );
-          } catch( JWaveFailureNotFound notFound ) {
-            // do nothing, no value stored
-          } catch( JWaveException e ) {
-            e.printStackTrace( );
-          } // try - never ever
-        } // i      
-      } // isAllocated
-    } catch( JWaveException e ) {
-      e.printStackTrace( );
-    } // try - never ever
+        try {
+            if (isAllocated()) {
+                line.alloc();
+                for (int i = 0; i < noOfRows; i++) {
+                    try {
+                        line.set(i, get(i));
+                    } catch (JWaveFailureNotFound notFound) {
+                        // do nothing, no value stored
+                    } catch (JWaveException e) {
+                        e.printStackTrace();
+                    } // try - never ever
+                } // i
+            } // isAllocated
+        } catch (JWaveException e) {
+            e.printStackTrace();
+        } // try - never ever
 
-    return line;
+        return line;
 
-  } // copy
+    } // copy
 
-  /*
-   * @author Christian (graetz23@gmail.com)
-   * @date 18.05.2015 18:11:28 (non-Javadoc)
-   * @see jwave.datatypes.lines.Line#isAllocated()
-   */
-  @Override public boolean isAllocated( ) {
-    boolean isAllocated = true;
-    if( _hashMap == null )
-      isAllocated = false;
-    return isAllocated;
-  } // isAllocated
+    /*
+     *
+     * @date 18.05.2015 18:11:28 (non-Javadoc)
+     * @see jwave.datatypes.lines.Line#isAllocated()
+     */
+    @Override
+    public boolean isAllocated() {
+        boolean isAllocated = _hashMap != null;
+        return isAllocated;
+    } // isAllocated
 
-  /*
-   * @author Christian (graetz23@gmail.com)
-   * @date 18.05.2015 18:12:03 (non-Javadoc)
-   * @see jwave.datatypes.lines.Line#alloc()
-   */
-  @Override public void alloc( ) throws JWaveException {
+    /*
+     *
+     * @date 18.05.2015 18:12:03 (non-Javadoc)
+     * @see jwave.datatypes.lines.Line#alloc()
+     */
+    @Override
+    public void alloc() throws JWaveException {
 
-    if( !isAllocated( ) )
-      _hashMap = new HashMap< Integer, Double >( );
+        if (!isAllocated())
+            _hashMap = new HashMap<Integer, Double>();
 
-  } // alloc
+    } // alloc
 
-  /*
-   * @author Christian (graetz23@gmail.com)
-   * @date 18.05.2015 18:12:13 (non-Javadoc)
-   * @see jwave.datatypes.lines.Line#erase()
-   */
-  @Override public void erase( ) throws JWaveException {
+    /*
+     *
+     * @date 18.05.2015 18:12:13 (non-Javadoc)
+     * @see jwave.datatypes.lines.Line#erase()
+     */
+    @Override
+    public void erase() throws JWaveException {
 
-    _hashMap = null;
+        _hashMap = null;
 
-  } // erase
+    } // erase
 
-  /*
-   * Getter!
-   * @author Christian (graetz23@gmail.com)
-   * @date 16.05.2015 16:30:00 (non-Javadoc)
-   * @see jwave.datatypes.lines.Line#get(int)
-   */
-  @Override public double get( int i ) throws JWaveException {
+    /*
+     * Getter!
+     *
+     * @date 16.05.2015 16:30:00 (non-Javadoc)
+     * @see jwave.datatypes.lines.Line#get(int)
+     */
+    @Override
+    public double get(int i) throws JWaveException {
 
-    checkMemory( );
+        checkMemory();
 
-    checkIndex( i );
+        checkIndex(i);
 
-    double value = 0.;
+        double value = 0.;
 
-    if( _hashMap.containsKey( i ) )
-      value = _hashMap.get( i );
-    else
-      throw new JWaveFailureNotFound(
-          "Line - no value stored for requested i: " + i );
+        if (_hashMap.containsKey(i))
+            value = _hashMap.get(i);
+        else
+            throw new JWaveFailureNotFound(
+                    "Line - no value stored for requested i: " + i);
 
-    return value;
+        return value;
 
-  } // get
+    } // get
 
-  /*
-   * Setter!
-   * @author Christian (graetz23@gmail.com)
-   * @date 16.05.2015 16:30:00 (non-Javadoc)
-   * @see jwave.datatypes.lines.Line#set(int, double)
-   */
-  @Override public void set( int i, double value ) throws JWaveException {
+    /*
+     * Setter!
+     *
+     * @date 16.05.2015 16:30:00 (non-Javadoc)
+     * @see jwave.datatypes.lines.Line#set(int, double)
+     */
+    @Override
+    public void set(int i, double value) throws JWaveException {
 
-    checkMemory( );
+        checkMemory();
 
-    checkIndex( i );
+        checkIndex(i);
 
-    _hashMap.put( i, value );
+        _hashMap.put(i, value);
 
-  } // set
+    } // set
 
 } // class

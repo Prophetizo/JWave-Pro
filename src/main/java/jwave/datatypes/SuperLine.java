@@ -1,18 +1,18 @@
 /**
  * JWave is distributed under the MIT License (MIT); this file is part of.
- *
+ * <p>
  * Copyright (c) 2008-2024 Christian (graetz23@gmail.com)
- * 
+ * <p>
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
  * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
  * copies of the Software, and to permit persons to whom the Software is
  * furnished to do so, subject to the following conditions:
- *
+ * <p>
  * The above copyright notice and this permission notice shall be included in
  * all copies or substantial portions of the Software.
- *
+ * <p>
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -23,188 +23,186 @@
  */
 package jwave.datatypes;
 
-import java.util.ArrayList;
-
 import jwave.datatypes.lines.Line;
 import jwave.datatypes.lines.LineFull;
 import jwave.exceptions.JWaveException;
 import jwave.exceptions.JWaveFailureNotValid;
 import jwave.tools.MathToolKit;
 
+import java.util.ArrayList;
+
 /**
  * SuperLine consists of several Line objects of different sizes.
- * 
- * @author Christian (graetz23@gmail.com)
+ *
+ *
  * @date 16.05.2015 19:30:28
  */
 public class SuperLine {
 
-  /**
-   * maximal size of a line object,
-   */
-  private int _maxLineSize;
+    /**
+     * However, who knows how many blocks are delivered!
+     *
+     *
+     * @date 18.05.2015 20:02:59
+     */
+    ArrayList<Super> _listOfLines;
+    /**
+     * maximal size of a line object,
+     */
+    private final int _maxLineSize;
+    /**
+     * no of entries in the Line object.
+     */
+    private final int _noOfRows;
 
-  /**
-   * no of entries in the Line object.
-   */
-  private int _noOfRows;
+    /**
+     *
+     * @date 16.05.2015 19:30:28
+     */
+    public SuperLine() {
 
-  /**
-   * However, who knows how many blocks are delivered!
-   * 
-   * @author Christian (graetz23@gmail.com)
-   * @date 18.05.2015 20:02:59
-   */
-  ArrayList< Super > _listOfLines;
+        _noOfRows = 0;
+        _maxLineSize = 1;
+        _listOfLines = new ArrayList<Super>();
 
-  /**
-   * @author Christian (graetz23@gmail.com)
-   * @date 16.05.2015 19:30:28
-   */
-  public SuperLine( ) {
+    } // SuperLine
 
-    _noOfRows = 0;
-    _maxLineSize = 1;
-    _listOfLines = new ArrayList< Super >( );
+    /**
+     * Set a SuperLine object by the noOfRows or noOfEntries.
+     *
+     *
+     * @date 12.01.2016 23:35:12
+     * @param noOfRows
+     *          the number of entries
+     */
+    public SuperLine(int noOfRows) {
 
-  } // SuperLine
+        _noOfRows = noOfRows;
+        _maxLineSize = 1;
+        _listOfLines = new ArrayList<Super>();
 
-  /**
-   * Set a SuperLine object by the noOfRows or noOfEntries.
-   * 
-   * @author Christian (graetz23@gmail.com)
-   * @date 12.01.2016 23:35:12
-   * @param noOfRows
-   *          the number of entries
-   */
-  public SuperLine( int noOfRows ) {
+    } // SuperLine
 
-    _noOfRows = noOfRows;
-    _maxLineSize = 1;
-    _listOfLines = new ArrayList< Super >( );
+    /**
+     * Set the SuperLine object by the noOfRows and the maximal block size.
+     *
+     *
+     * @date 12.01.2016 23:36:23
+     * @param noOfRows
+     *          the number of entries
+     * @param maxBlockSize
+     *          the maximal block size, should be << number of entries
+     */
+    public SuperLine(int noOfRows, int maxBlockSize) {
 
-  } // SuperLine
+        _noOfRows = noOfRows;
+        _maxLineSize = maxBlockSize;
+        _listOfLines = new ArrayList<Super>();
 
-  /**
-   * Set the SuperLine object by the noOfRows and the maximal block size.
-   * 
-   * @author Christian (graetz23@gmail.com)
-   * @date 12.01.2016 23:36:23
-   * @param noOfRows
-   *          the number of entries
-   * @param maxBlockSize
-   *          the maximal block size, should be << number of entries
-   */
-  public SuperLine( int noOfRows, int maxBlockSize ) {
+    } // SuperLine
 
-    _noOfRows = noOfRows;
-    _maxLineSize = maxBlockSize;
-    _listOfLines = new ArrayList< Super >( );
+    /**
+     * Set up a configured an empty SuperLine object by allocating empty Block
+     * objects.
+     *
+     *
+     * @throws JWaveException
+     *           is throwsn while parameters are calcualted wrong
+     * @date 12.01.2016 23:38:50
+     */
+    public void init() throws JWaveException {
 
-  } // SuperLine
+        int noOfLineObjects = _noOfRows / _maxLineSize; // 29 / 8  = 3
 
-  /**
-   * Set up a configured an empty SuperLine object by allocating empty Block
-   * objects.
-   * 
-   * @author Christian (graetz23@gmail.com)
-   * @throws JWaveException
-   *           is throwsn while parameters are calcualted wrong
-   * @date 12.01.2016 23:38:50
-   */
-  public void init( ) throws JWaveException {
+        int leftEntries = _noOfRows % _maxLineSize; // 29 % 8 = 5
 
-    int noOfLineObjects = (int)( _noOfRows / _maxLineSize ); // 29 / 8  = 3
+        if (leftEntries + _maxLineSize * noOfLineObjects != _noOfRows)
+            throw new JWaveFailureNotValid(
+                    "calculated splitting to Block objects is not valid");
 
-    int leftEntries = _noOfRows % _maxLineSize; // 29 % 8 = 5
+        for (int i = 0; i < noOfLineObjects; i++)
+            add(new LineFull(i * _maxLineSize, _maxLineSize));
 
-    if( leftEntries + _maxLineSize * noOfLineObjects != _noOfRows )
-      throw new JWaveFailureNotValid(
-          "calculated splitting to Block objects is not valid" );
+        int[] arrBinaries = MathToolKit.decompose(leftEntries);
+        for (int i = 0; i < arrBinaries.length; i++)
+            arrBinaries[i] = (int) MathToolKit.scalb(1., arrBinaries[i]);
 
-    for( int i = 0; i < noOfLineObjects; i++ )
-      add( new LineFull( i * _maxLineSize, _maxLineSize ) );
+        for (int a = 0; a < arrBinaries.length; a++)
+            System.out.println("arrbBinaries[ " + a + " ] = " + arrBinaries[a]);
 
-    int[ ] arrBinaries = MathToolKit.decompose( leftEntries );
-    for( int i = 0; i < arrBinaries.length; i++ )
-      arrBinaries[ i ] = (int)MathToolKit.scalb( 1., arrBinaries[ i ] );
+        int offset = noOfLineObjects * _maxLineSize;
+        for (int i = 0; i < arrBinaries.length; i++) {
+            if (i == 0)
+                add(new LineFull(offset, arrBinaries[i]));
+            else {
+                offset += arrBinaries[i - 1];
+                add(new LineFull(offset, arrBinaries[i]));
+            }
+        }
 
-    for( int a = 0; a < arrBinaries.length; a++ )
-      System.out.println( "arrbBinaries[ " + a + " ] = " + arrBinaries[ a ] );
+    } // init
 
-    int offset = noOfLineObjects * _maxLineSize;
-    for( int i = 0; i < arrBinaries.length; i++ ) {
-      if( i == 0 )
-        add( new LineFull( offset, arrBinaries[ i ] ) );
-      else {
-        offset += arrBinaries[ i - 1 ];
-        add( new LineFull( offset, arrBinaries[ i ] ) );
-      }
-    }
+    /**
+     * Returns the number of stored Line objects.
+     *
+     *
+     * @date 16.05.2015 19:36:13
+     * @return number of Line objects
+     */
+    public int getNoOfLines() {
 
-  } // init
+        return _listOfLines.size();
 
-  /**
-   * Returns the number of stored Line objects.
-   * 
-   * @author Christian (graetz23@gmail.com)
-   * @date 16.05.2015 19:36:13
-   * @return number of Line objects
-   */
-  public int getNoOfLines( ) {
+    } // getNoOfLines
 
-    return _listOfLines.size( );
+    /**
+     * Add a Line object to list
+     *
+     *
+     * @date 16.05.2015 19:36:54
+     * @param line
+     *          object of type Line
+     */
+    public void add(Line line) {
 
-  } // getNoOfLines
+        _listOfLines.add(line);
 
-  /**
-   * Add a Line object to list
-   * 
-   * @author Christian (graetz23@gmail.com)
-   * @date 16.05.2015 19:36:54
-   * @param line
-   *          object of type Line
-   */
-  public void add( Line line ) {
+    } // add
 
-    _listOfLines.add( line );
+    /**
+     * Return Line object at position p; 0 .. N-1
+     *
+     *
+     * @date 24.05.2015 18:16:27
+     * @param p
+     * @return
+     * @throws JWaveException
+     */
+    public Line get(int p) throws JWaveException {
 
-  } // add
+        Line line = null;
 
-  /**
-   * Return Line object at position p; 0 .. N-1
-   * 
-   * @author Christian (graetz23@gmail.com)
-   * @date 24.05.2015 18:16:27
-   * @param p
-   * @return
-   * @throws JWaveException
-   */
-  public Line get( int p ) throws JWaveException {
+        if (p < 0 || p >= getNoOfLines())
+            throw new JWaveFailureNotValid(
+                    "SuperLine#get - position p is out of bound!");
 
-    Line line = null;
+        line = (Line) _listOfLines.get(p);
 
-    if( p < 0 || p >= getNoOfLines( ) )
-      throw new JWaveFailureNotValid(
-          "SuperLine#get - position p is out of bound!" );
+        return line;
 
-    line = (Line)_listOfLines.get( p );
+    } // get
 
-    return line;
+    /**
+     * Return the set number of rows
+     *
+     *
+     * @date 12.01.2016 23:34:12
+     * @return
+     */
+    public int getNoOfRows() {
 
-  } // get
+        return _noOfRows;
 
-  /**
-   * Return the set number of rows
-   * 
-   * @author Christian (graetz23@gmail.com)
-   * @date 12.01.2016 23:34:12
-   * @return
-   */
-  public int getNoOfRows( ) {
-
-    return _noOfRows;
-
-  } // getNoOfRows
+    } // getNoOfRows
 
 } // class

@@ -1,18 +1,18 @@
 /**
  * JWave is distributed under the MIT License (MIT); this file is part of.
- *
+ * <p>
  * Copyright (c) 2008-2020 Christian (graetz23@gmail.com)
- * 
+ * <p>
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
  * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
  * copies of the Software, and to permit persons to whom the Software is
  * furnished to do so, subject to the following conditions:
- *
+ * <p>
  * The above copyright notice and this permission notice shall be included in
  * all copies or substantial portions of the Software.
- *
+ * <p>
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -23,123 +23,125 @@
  */
 package jwave.datatypes;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.fail;
 import jwave.datatypes.lines.Line;
 import jwave.datatypes.lines.LineFull;
 import jwave.datatypes.lines.LineHash;
 import jwave.exceptions.JWaveException;
-
 import org.junit.Test;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.fail;
+
 /**
- * @author Christian (graetz23@gmail.com)
+ *
  * @date 16.05.2015 16:06:38
  */
 public class LineTest {
 
-  private int _noOfRows = 100000; // adjust runtime of test
+    private final int _noOfRows = 100000; // adjust runtime of test
 
-  /**
-   * Generate a LineFull object already set with data: i!
-   * 
-   * @author Christian (graetz23@gmail.com)
-   * @date 16.05.2015 16:09:13
-   * @param noOfRows
-   *          0 ..
-   * @return
-   * @throws JWaveException
-   */
-  private Line genLineFullObject( int noOfRows ) throws JWaveException {
+    /**
+     * Generate a LineFull object already set with data: i!
+     *
+     *
+     * @date 16.05.2015 16:09:13
+     * @param noOfRows
+     *          0 ..
+     * @return
+     * @throws JWaveException
+     */
+    private Line genLineFullObject(int noOfRows) throws JWaveException {
 
-    Line line = new LineFull( noOfRows );
+        Line line = new LineFull(noOfRows);
 
-    if( !line.isAllocated( ) )
-      line.alloc( ); // double[ ] array
+        if (!line.isAllocated())
+            line.alloc(); // double[ ] array
 
-    for( int i = 0; i < line.getNoOfRows( ); i++ )
-      line.set( i, (double)i );
+        for (int i = 0; i < line.getNoOfRows(); i++)
+            line.set(i, i);
 
-    return line;
+        return line;
 
-  } // genLineFullObject
+    } // genLineFullObject
 
-  /**
-   * Generate a LineHash object already set with data: i!
-   * 
-   * @author Christian (graetz23@gmail.com)
-   * @date 16.05.2015 16:39:06
-   * @param noOfRows
-   * @return
-   * @throws JWaveException
-   */
-  private Line genLineHashObject( int noOfRows ) throws JWaveException {
+    /**
+     * Generate a LineHash object already set with data: i!
+     *
+     *
+     * @date 16.05.2015 16:39:06
+     * @param noOfRows
+     * @return
+     * @throws JWaveException
+     */
+    private Line genLineHashObject(int noOfRows) throws JWaveException {
 
-    Line line = new LineHash( noOfRows );
+        Line line = new LineHash(noOfRows);
 
-    if( !line.isAllocated( ) )
-      line.alloc( ); // HashMap< Integer, Double >
+        if (!line.isAllocated())
+            line.alloc(); // HashMap< Integer, Double >
 
-    for( int i = 0; i < line.getNoOfRows( ); i++ )
-      line.set( i, (double)i );
+        for (int i = 0; i < line.getNoOfRows(); i++)
+            line.set(i, i);
 
-    return line;
+        return line;
 
-  } // genLineHashObject
+    } // genLineHashObject
 
-  /**
-   * Test method for {@link jwave.datatypes.lines.LineFull#get(int)}.
-   */
-  @Test public void testGet( ) {
+    /**
+     * Test method for {@link jwave.datatypes.lines.LineFull#get(int)}.
+     */
+    @Test
+    public void testGet() {
 
-    try {
+        try {
 
-      Line line = genLineFullObject( _noOfRows );
+            Line line = genLineFullObject(_noOfRows);
 
-      for( int i = 0; i < line.getNoOfRows( ); i++ )
-        assertEquals( (double)i, line.get( i ), 0. );
+            for (int i = 0; i < line.getNoOfRows(); i++)
+                assertEquals(i, line.get(i), 0.);
 
-      line = genLineHashObject( _noOfRows );
+            line = genLineHashObject(_noOfRows);
 
-      for( int i = 0; i < line.getNoOfRows( ); i++ )
-        assertEquals( (double)i, line.get( i ), 0. );
+            for (int i = 0; i < line.getNoOfRows(); i++)
+                assertEquals(i, line.get(i), 0.);
 
-    } catch( JWaveException e ) {
-      e.printStackTrace( );
-      fail( "caught exception" );
-    } // try 
+        } catch (JWaveException e) {
+            e.printStackTrace();
+            fail("caught exception");
+        } // try
 
-  }
+    }
 
-  /**
-   * Test method for
-   * {@link jwave.datatypes.lines.LineFull#set(int, double)}.
-   */
-  @Test public void testSet( ) {
+    /**
+     * Test method for
+     * {@link jwave.datatypes.lines.LineFull#set(int, double)}.
+     */
+    @Test
+    public void testSet() {
 
-    try {
+        try {
 
-      Line line = genLineFullObject( _noOfRows );
+            Line line = genLineFullObject(_noOfRows);
 
-      for( int i = 0; i < line.getNoOfRows( ); i++ )
-        line.set( i, (double)( i + 1 ) );
+            for (int i = 0; i < line.getNoOfRows(); i++)
+                line.set(i, i + 1);
 
-      for( int i = 0; i < line.getNoOfRows( ); i++ )
-        assertEquals( (double)( i + 1 ), line.get( i ), 0. );
+            for (int i = 0; i < line.getNoOfRows(); i++)
+                assertEquals(i + 1, line.get(i), 0.);
 
-      line = genLineHashObject( _noOfRows );
+            line = genLineHashObject(_noOfRows);
 
-      for( int i = 0; i < line.getNoOfRows( ); i++ )
-        line.set( i, (double)( i + 1 ) );
+            for (int i = 0; i < line.getNoOfRows(); i++)
+                line.set(i, i + 1);
 
-      for( int i = 0; i < line.getNoOfRows( ); i++ )
-        assertEquals( (double)( i + 1 ), line.get( i ), 0. );
+            for (int i = 0; i < line.getNoOfRows(); i++)
+                assertEquals(i + 1, line.get(i), 0.);
 
-    } catch( JWaveException e ) {
-      e.printStackTrace( );
-      fail( "caught exception" );
-    } // try 
+        } catch (JWaveException e) {
+            e.printStackTrace();
+            fail("caught exception");
+        } // try
 
-  } // test
+    } // test
 
 } // JUnit

@@ -1,16 +1,16 @@
 /**
  * JWave is distributed under the MIT License (MIT); this file is part of.
- *
+ * <p>
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
  * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
  * copies of the Software, and to permit persons to whom the Software is
  * furnished to do so, subject to the following conditions:
- *
+ * <p>
  * The above copyright notice and this permission notice shall be included in
  * all copies or substantial portions of the Software.
- *
+ * <p>
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -21,9 +21,10 @@
  */
 package jwave.transforms;
 
-import static org.junit.Assert.*;
-import org.junit.Test;
 import jwave.utils.MathUtils;
+import org.junit.Test;
+
+import static org.junit.Assert.*;
 
 /**
  * Test to verify nextPowerOfTwo implementations.
@@ -32,7 +33,7 @@ import jwave.utils.MathUtils;
  * @date 07.01.2025
  */
 public class NextPowerOfTwoTest {
-    
+
     @Test
     public void testNextPowerOfTwo() {
         // Test the bit-twiddling approach from MathUtils
@@ -63,7 +64,7 @@ public class NextPowerOfTwoTest {
         assertEquals(65536, MathUtils.nextPowerOfTwo(50000));
         assertEquals(1048576, MathUtils.nextPowerOfTwo(1000000));
     }
-    
+
     @Test
     public void testIsPowerOfTwo() {
         // Test isPowerOfTwo from MathUtils
@@ -88,6 +89,6 @@ public class NextPowerOfTwoTest {
         assertFalse(MathUtils.isPowerOfTwo(-1));
         assertFalse(MathUtils.isPowerOfTwo(-8));
     }
-    
+
     // The compareBitTwiddlingVsFloatingPoint test has been moved to a dedicated performance test suite.
 }

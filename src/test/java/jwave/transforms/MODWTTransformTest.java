@@ -45,8 +45,8 @@ public class MODWTTransformTest {
 
         // The MODWT filters for Haar are {0.5, -0.5} and {0.5, 0.5}.
         double[] expectedD1 = {
-                (1.0 * 0.5) + (8.0 * -0.5), // -3.5
-                (2.0 * 0.5) + (1.0 * -0.5), //  0.5
+                (0.5) + (8.0 * -0.5), // -3.5
+                (2.0 * 0.5) + (-0.5), //  0.5
                 (3.0 * 0.5) + (2.0 * -0.5), //  0.5
                 (4.0 * 0.5) + (3.0 * -0.5), //  0.5
                 (5.0 * 0.5) + (4.0 * -0.5), //  0.5
@@ -56,8 +56,8 @@ public class MODWTTransformTest {
         };
 
         double[] expectedA1 = {
-                (1.0 * 0.5) + (8.0 * 0.5),  // 4.5
-                (2.0 * 0.5) + (1.0 * 0.5),  // 1.5
+                (0.5) + (8.0 * 0.5),  // 4.5
+                (2.0 * 0.5) + (0.5),  // 1.5
                 (3.0 * 0.5) + (2.0 * 0.5),  // 2.5
                 (4.0 * 0.5) + (3.0 * 0.5),  // 3.5
                 (5.0 * 0.5) + (4.0 * 0.5),  // 4.5
@@ -98,6 +98,7 @@ public class MODWTTransformTest {
 
     /**
      * Helper method to calculate the variance of a data array.
+     *
      * @param data The array of doubles.
      * @return The variance of the data.
      */

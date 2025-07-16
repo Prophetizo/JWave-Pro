@@ -1,9 +1,8 @@
 /**
  * Create Transform objects ...
  *
- * @author Christian (graetz23@gmail.com)
- * @date 14.03.2015 14:25:21 
- *
+ * @date 14.03.2015 14:25:21
+ * <p>
  * TransformBuilder.java
  */
 package jwave;
@@ -19,94 +18,94 @@ import jwave.transforms.wavelets.WaveletBuilder;
 
 /**
  * Class for creating and identifying Transform object.
- * 
- * @author Christian (graetz23@gmail.com)
+ *
+ *
  * @date 14.03.2015 14:25:21
  */
 public class TransformBuilder {
 
-  /**
-   * Create a Transform object by a given string and a given Wavelet object.
-   * Look into each Transform for matching string identifier. By the way the
-   * method requires Java 7, due to the switch statement on a string. *rofl*
-   * 
-   * @author Christian (graetz23@gmail.com)
-   * @date 14.03.2015 14:35:12
-   * @param transformName
-   *          identifier as stored in Transform object
-   * @param wavelet
-   * @return a matching object of type Transform
-   */
-  static public Transform create( String transformName, Wavelet wavelet ) {
+    /**
+     * Create a Transform object by a given string and a given Wavelet object.
+     * Look into each Transform for matching string identifier. By the way the
+     * method requires Java 7, due to the switch statement on a string. *rofl*
+     *
+     *
+     * @date 14.03.2015 14:35:12
+     * @param transformName
+     *          identifier as stored in Transform object
+     * @param wavelet
+     * @return a matching object of type Transform
+     */
+    static public Transform create(String transformName, Wavelet wavelet) {
 
-    BasicTransform basicTransform = null;
+        BasicTransform basicTransform = null;
 
-    try {
+        try {
 
-      switch( transformName ){
+            switch (transformName) {
 
-        case "Discrete Fourier Transform":
-          basicTransform = new DiscreteFourierTransform( );
-          break;
+                case "Discrete Fourier Transform":
+                    basicTransform = new DiscreteFourierTransform();
+                    break;
 
-        case "Fast Wavelet Transform":
-          basicTransform = new FastWaveletTransform( wavelet );
-          break;
+                case "Fast Wavelet Transform":
+                    basicTransform = new FastWaveletTransform(wavelet);
+                    break;
 
-        case "Wavelet Packet Transform":
-          basicTransform = new WaveletPacketTransform( wavelet );
-          break;
+                case "Wavelet Packet Transform":
+                    basicTransform = new WaveletPacketTransform(wavelet);
+                    break;
 
-        default:
+                default:
 
-          throw new JWaveFailure(
-              "TransformBuilder::create - unknown type of transform for given string!" );
+                    throw new JWaveFailure(
+                            "TransformBuilder::create - unknown type of transform for given string!");
 
-      } // switch
+            } // switch
 
-    } catch( JWaveException e ) {
+        } catch (JWaveException e) {
 
-      e.showMessage( );
-      e.printStackTrace( );
+            e.showMessage();
+            e.printStackTrace();
 
-    } // try
+        } // try
 
-    return new Transform( basicTransform );
+        return new Transform(basicTransform);
 
-  } // create
+    } // create
 
-  /**
-   * Create a Transform object by a given string and a given string for a
-   * Wavelet object. Look into each Transform and Wavelet for matching string
-   * identifier.
-   * 
-   * @author Christian (graetz23@gmail.com)
-   * @date 14.03.2015 14:37:30
-   * @param transformName
-   *          identifier as stored in Transform object
-   * @param waveletName
-   * @return identifier as stored in Wavelet object
-   */
-  static public Transform create( String transformName, String waveletName ) {
+    /**
+     * Create a Transform object by a given string and a given string for a
+     * Wavelet object. Look into each Transform and Wavelet for matching string
+     * identifier.
+     *
+     *
+     * @date 14.03.2015 14:37:30
+     * @param transformName
+     *          identifier as stored in Transform object
+     * @param waveletName
+     * @return identifier as stored in Wavelet object
+     */
+    static public Transform create(String transformName, String waveletName) {
 
-    return create( transformName, WaveletBuilder.create( waveletName ) );
+        return create(transformName, WaveletBuilder.create(waveletName));
 
-  } // create
+    } // create
 
-  /**
-   * Returns the identifier string of a given Transform object.
-   * 
-   * @author Christian (graetz23@gmail.com)
-   * @date 14.03.2015 14:34:20
-   * @param transform
-   *          string identifier of the given Transform object
-   * @return a string as the identifier of the given Transform object
-   */
-  static public String identify( Transform transform ) {
+    /**
+     * Returns the identifier string of a given Transform object.
+     *
+     *
+     * @date 14.03.2015 14:34:20
+     * @param transform
+     *          string identifier of the given Transform object
+     * @return a string as the identifier of the given Transform object
+     */
+    static public String identify(Transform transform) {
 
-    BasicTransform basicTransform = transform.getBasicTransform( );
-    return basicTransform.getName( );
+        BasicTransform basicTransform = transform.getBasicTransform();
+        return basicTransform.getName();
 
-  } // identify
+    } // identify
 
 } // class

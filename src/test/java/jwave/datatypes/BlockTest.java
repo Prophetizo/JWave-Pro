@@ -1,18 +1,18 @@
 /**
  * JWave is distributed under the MIT License (MIT); this file is part of.
- *
+ * <p>
  * Copyright (c) 2008-2020 Christian (graetz23@gmail.com)
- * 
+ * <p>
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
  * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
  * copies of the Software, and to permit persons to whom the Software is
  * furnished to do so, subject to the following conditions:
- *
+ * <p>
  * The above copyright notice and this permission notice shall be included in
  * all copies or substantial portions of the Software.
- *
+ * <p>
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -23,136 +23,138 @@
  */
 package jwave.datatypes;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.fail;
 import jwave.datatypes.blocks.Block;
 import jwave.datatypes.blocks.BlockFull;
 import jwave.datatypes.blocks.BlockHash;
 import jwave.exceptions.JWaveException;
-
 import org.junit.Test;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.fail;
+
 /**
- * @author Christian (graetz23@gmail.com)
+ *
  * @date 16.05.2015 16:15:47
  */
 public class BlockTest {
 
-  private int _noOfRows = 1000; // adjust runtime of test
-  private int _noOfCols = 1000; // adjust runtime of test
+    private final int _noOfRows = 1000; // adjust runtime of test
+    private final int _noOfCols = 1000; // adjust runtime of test
 
-  /**
-   * generate a block for tests keeping already data: i + j!
-   * 
-   * @author Christian (graetz23@gmail.com)
-   * @date 16.05.2015 16:21:33
-   * @param noOfRows
-   *          0 ..
-   * @param noOfCols
-   *          0 ..
-   * @return
-   * @throws JWaveException
-   */
-  private Block genBlockFullObject( int noOfRows, int noOfCols )
-      throws JWaveException {
+    /**
+     * generate a block for tests keeping already data: i + j!
+     *
+     *
+     * @date 16.05.2015 16:21:33
+     * @param noOfRows
+     *          0 ..
+     * @param noOfCols
+     *          0 ..
+     * @return
+     * @throws JWaveException
+     */
+    private Block genBlockFullObject(int noOfRows, int noOfCols)
+            throws JWaveException {
 
-    Block block = new BlockFull( noOfRows, noOfCols );
+        Block block = new BlockFull(noOfRows, noOfCols);
 
-    block.alloc( );
+        block.alloc();
 
-    for( int i = 0; i < block.getNoOfRows( ); i++ )
-      for( int j = 0; j < block.getNoOfCols( ); j++ )
-        block.set( i, j, (double)( i + j ) );
+        for (int i = 0; i < block.getNoOfRows(); i++)
+            for (int j = 0; j < block.getNoOfCols(); j++)
+                block.set(i, j, i + j);
 
-    return block;
+        return block;
 
-  } // genBlockFullObject
+    } // genBlockFullObject
 
-  /**
-   * Generate a BlockHash object already set with data: i + j!
-   * 
-   * @author Christian (graetz23@gmail.com)
-   * @date 16.05.2015 16:49:33
-   * @param noOfRows
-   * @param noOfCols
-   * @return
-   * @throws JWaveException
-   */
-  private Block genBlockHashObject( int noOfRows, int noOfCols )
-      throws JWaveException {
+    /**
+     * Generate a BlockHash object already set with data: i + j!
+     *
+     *
+     * @date 16.05.2015 16:49:33
+     * @param noOfRows
+     * @param noOfCols
+     * @return
+     * @throws JWaveException
+     */
+    private Block genBlockHashObject(int noOfRows, int noOfCols)
+            throws JWaveException {
 
-    Block block = new BlockHash( noOfRows, noOfCols );
+        Block block = new BlockHash(noOfRows, noOfCols);
 
-    block.alloc( );
+        block.alloc();
 
-    for( int i = 0; i < block.getNoOfRows( ); i++ )
-      for( int j = 0; j < block.getNoOfCols( ); j++ )
-        block.set( i, j, (double)( i + j ) );
+        for (int i = 0; i < block.getNoOfRows(); i++)
+            for (int j = 0; j < block.getNoOfCols(); j++)
+                block.set(i, j, i + j);
 
-    return block;
+        return block;
 
-  } // genBlockHashObject
+    } // genBlockHashObject
 
-  /**
-   * Test method for {@link jwave.datatypes.blocks.BlockFull#get(int, int)}
-   * .
-   */
-  @Test public void testGet( ) {
+    /**
+     * Test method for {@link jwave.datatypes.blocks.BlockFull#get(int, int)}
+     * .
+     */
+    @Test
+    public void testGet() {
 
-    try {
+        try {
 
-      Block block = genBlockFullObject( _noOfRows, _noOfCols );
+            Block block = genBlockFullObject(_noOfRows, _noOfCols);
 
-      for( int i = 0; i < block.getNoOfRows( ); i++ )
-        for( int j = 0; j < block.getNoOfCols( ); j++ )
-          assertEquals( (double)( i + j ), block.get( i, j ), 0. );
+            for (int i = 0; i < block.getNoOfRows(); i++)
+                for (int j = 0; j < block.getNoOfCols(); j++)
+                    assertEquals(i + j, block.get(i, j), 0.);
 
-      block = genBlockHashObject( _noOfRows, _noOfCols );
+            block = genBlockHashObject(_noOfRows, _noOfCols);
 
-      for( int i = 0; i < block.getNoOfRows( ); i++ )
-        for( int j = 0; j < block.getNoOfCols( ); j++ )
-          assertEquals( (double)( i + j ), block.get( i, j ), 0. );
+            for (int i = 0; i < block.getNoOfRows(); i++)
+                for (int j = 0; j < block.getNoOfCols(); j++)
+                    assertEquals(i + j, block.get(i, j), 0.);
 
-    } catch( JWaveException e ) {
-      e.printStackTrace( );
-      fail( "caught exception" );
-    } // try 
+        } catch (JWaveException e) {
+            e.printStackTrace();
+            fail("caught exception");
+        } // try
 
-  }
+    }
 
-  /**
-   * Test method for
-   * {@link jwave.datatypes.blocks.BlockFull#set(int, int, double)}.
-   */
-  @Test public void testSet( ) {
+    /**
+     * Test method for
+     * {@link jwave.datatypes.blocks.BlockFull#set(int, int, double)}.
+     */
+    @Test
+    public void testSet() {
 
-    try {
+        try {
 
-      Block block = genBlockFullObject( _noOfRows, _noOfCols );
+            Block block = genBlockFullObject(_noOfRows, _noOfCols);
 
-      for( int i = 0; i < block.getNoOfRows( ); i++ )
-        for( int j = 0; j < block.getNoOfCols( ); j++ )
-          block.set( i, j, (double)( i + j + 1 ) );
+            for (int i = 0; i < block.getNoOfRows(); i++)
+                for (int j = 0; j < block.getNoOfCols(); j++)
+                    block.set(i, j, i + j + 1);
 
-      for( int i = 0; i < block.getNoOfRows( ); i++ )
-        for( int j = 0; j < block.getNoOfCols( ); j++ )
-          assertEquals( (double)( i + j + 1 ), block.get( i, j ), 0. );
+            for (int i = 0; i < block.getNoOfRows(); i++)
+                for (int j = 0; j < block.getNoOfCols(); j++)
+                    assertEquals(i + j + 1, block.get(i, j), 0.);
 
-      block = genBlockHashObject( _noOfRows, _noOfCols );
+            block = genBlockHashObject(_noOfRows, _noOfCols);
 
-      for( int i = 0; i < block.getNoOfRows( ); i++ )
-        for( int j = 0; j < block.getNoOfCols( ); j++ )
-          block.set( i, j, (double)( i + j + 1 ) );
+            for (int i = 0; i < block.getNoOfRows(); i++)
+                for (int j = 0; j < block.getNoOfCols(); j++)
+                    block.set(i, j, i + j + 1);
 
-      for( int i = 0; i < block.getNoOfRows( ); i++ )
-        for( int j = 0; j < block.getNoOfCols( ); j++ )
-          assertEquals( (double)( i + j + 1 ), block.get( i, j ), 0. );
+            for (int i = 0; i < block.getNoOfRows(); i++)
+                for (int j = 0; j < block.getNoOfCols(); j++)
+                    assertEquals(i + j + 1, block.get(i, j), 0.);
 
-    } catch( JWaveException e ) {
-      e.printStackTrace( );
-      fail( "caught exception" );
-    } // try 
+        } catch (JWaveException e) {
+            e.printStackTrace();
+            fail("caught exception");
+        } // try
 
-  }
+    }
 
 }
